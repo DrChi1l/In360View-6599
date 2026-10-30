@@ -1,0 +1,30 @@
+// Integration example. Copy to packages/mobile/lib/tenant-report.ts.
+// Wire this into the native completion screen; this file is not a screen.
+import { Share } from "react-native";
+import Constants from "expo-constants";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { AppRouterClient } from "@template/web";
+import type { TenantCreate } from "../../web/src/api/lib/tenant-contract";
+
+function anonymousClient(): AppRouterClient {
+  const base = Constants.expoConfig?.extra?.apiUrl ?? process.env.EXPO_PUBLIC_API_URL;
+  if (!base) throw new Error("Configure the app's API URL before publishing reports.");
+  return createORPCClient(new RPCLink({ url: `${base.replace(/\/+$/, "")}/api/rpc` }));
+}
+
+export async function publishTenantSnapshot(snapshot: TenantCreate) {
+  return anonymousClient().tenantReport.create(snapshot);
+}
+
+// Persist the returned token and URL in the app's local report BEFORE sharing.
+export async function shareTenantLink(url: string) {
+  return Share.share({
+    title: "Your In360View inspection report",
+    message: `Review your inspection report, add comments and photographs, and sign here: ${url}`,
+  });
+}
+
+export async function getTenantResponse(token: string) {
+  return anonymousClient().tenantReport.get({ token });
+}

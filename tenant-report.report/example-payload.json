@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "report": {
+    "reference": "SAMPLE-2026-001",
+    "type": "check_in",
+    "inspectionDate": "2026-10-07",
+    "inspectorName": "Sample inspector",
+    "property": { "address": "12 Example Lane", "postcode": "AB1 2CD" },
+    "summary": "Sample inspection only; no real tenancy data.",
+    "photoUrls": [],
+    "rooms": [
+      {
+        "id": "hall",
+        "name": "Entrance hallway",
+        "notes": "",
+        "photoUrls": [],
+        "items": [
+          {
+            "id": "hall-door",
+            "name": "Front door",
+            "quantity": 1,
+            "description": "White painted timber door with chrome handle.",
+            "condition": "good",
+            "cleanliness": "clean",
+            "notes": "Light scuff to lower edge.",
+            "photoUrls": []
+          }
+        ]
+      }
+    ],
+    "meters": [{ "type": "electricity", "serialNumber": "SAMPLE-001", "reading": "12345", "location": "Hall cupboard" }],
+    "keys": [{ "description": "Front door keys", "quantity": 2, "notes": "" }]
+  }
+}

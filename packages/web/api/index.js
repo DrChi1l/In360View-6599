@@ -34,10 +34,9 @@ function createApp(router2) {
   return app2;
 }
 
-// src/api/auth.ts
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { expo } from "@better-auth/expo";
+// src/api/routes/account.ts
+import { eq as eq2 } from "drizzle-orm";
+import { z } from "zod";
 
 // src/api/database/__client.ts
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -46,8 +45,6 @@ import postgres from "postgres";
 // src/api/database/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
-  account: () => account,
-  accountRelations: () => accountRelations,
   auditLog: () => auditLog,
   bookingAccessLinks: () => bookingAccessLinks,
   bookingRequests: () => bookingRequests,
@@ -55,100 +52,32 @@ __export(schema_exports, {
   keySets: () => keySets,
   meterReadings: () => meterReadings,
   photos: () => photos,
+  profiles: () => profiles,
   properties: () => properties,
   reports: () => reports,
   rooms: () => rooms,
   scheduledInspections: () => scheduledInspections,
-  session: () => session,
-  sessionRelations: () => sessionRelations,
   signatures: () => signatures,
   subscriptions: () => subscriptions,
   tenantAssets: () => tenantAssets,
   tenantRateLimits: () => tenantRateLimits,
-  tenantReports: () => tenantReports,
-  user: () => user,
-  userRelations: () => userRelations,
-  verification: () => verification
+  tenantReports: () => tenantReports
 });
-import { boolean as boolean2, index as index2, integer, jsonb, pgTable as pgTable2, real, text as text2, timestamp as timestamp2 } from "drizzle-orm/pg-core";
+import { boolean as boolean2, index, integer, jsonb, pgTable as pgTable2, real, text as text2, timestamp as timestamp2 } from "drizzle-orm/pg-core";
 
 // src/api/database/auth-schema.ts
-import { relations } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-var user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
-  createdAt: timestamp("created_at", { mode: "date", precision: 3 }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).defaultNow().$onUpdate(() => /* @__PURE__ */ new Date()).notNull(),
-  role: text("role").default("clerk"),
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+var profiles = pgTable("profiles", {
+  id: uuid("id").primaryKey(),
+  email: text("email").notNull().default(""),
+  name: text("name").notNull().default(""),
   companyName: text("company_name"),
   phone: text("phone"),
-  disabled: boolean("disabled").default(false)
+  role: text("role").notNull().default("clerk"),
+  disabled: boolean("disabled").notNull().default(false),
+  createdAt: timestamp("created_at", { mode: "date", precision: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).defaultNow().notNull()
 });
-var session = pgTable(
-  "session",
-  {
-    id: text("id").primaryKey(),
-    expiresAt: timestamp("expires_at", { mode: "date", precision: 3 }).notNull(),
-    token: text("token").notNull().unique(),
-    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).defaultNow().$onUpdate(() => /* @__PURE__ */ new Date()).notNull(),
-    ipAddress: text("ip_address"),
-    userAgent: text("user_agent"),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" })
-  },
-  (table) => [index("session_userId_idx").on(table.userId)]
-);
-var account = pgTable(
-  "account",
-  {
-    id: text("id").primaryKey(),
-    accountId: text("account_id").notNull(),
-    providerId: text("provider_id").notNull(),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    accessToken: text("access_token"),
-    refreshToken: text("refresh_token"),
-    idToken: text("id_token"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { mode: "date", precision: 3 }),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { mode: "date", precision: 3 }),
-    scope: text("scope"),
-    password: text("password"),
-    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).defaultNow().$onUpdate(() => /* @__PURE__ */ new Date()).notNull()
-  },
-  (table) => [index("account_userId_idx").on(table.userId)]
-);
-var verification = pgTable(
-  "verification",
-  {
-    id: text("id").primaryKey(),
-    identifier: text("identifier").notNull(),
-    value: text("value").notNull(),
-    expiresAt: timestamp("expires_at", { mode: "date", precision: 3 }).notNull(),
-    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).defaultNow().$onUpdate(() => /* @__PURE__ */ new Date()).notNull()
-  },
-  (table) => [index("verification_identifier_idx").on(table.identifier)]
-);
-var userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account)
-}));
-var sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
-    fields: [session.userId],
-    references: [user.id]
-  })
-}));
-var accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id]
-  })
-}));
 
 // src/api/database/schema.ts
 var now = () => /* @__PURE__ */ new Date();
@@ -186,7 +115,7 @@ var properties = pgTable2(
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
     updatedAt: timestamp2("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("properties_user_idx").on(t.userId), index2("properties_postcode_idx").on(t.postcode)]
+  (t) => [index("properties_user_idx").on(t.userId), index("properties_postcode_idx").on(t.postcode)]
 );
 var reports = pgTable2(
   "reports",
@@ -219,9 +148,9 @@ var reports = pgTable2(
     updatedAt: timestamp2("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
   (t) => [
-    index2("reports_property_idx").on(t.propertyId),
-    index2("reports_user_idx").on(t.userId),
-    index2("reports_status_idx").on(t.status)
+    index("reports_property_idx").on(t.propertyId),
+    index("reports_user_idx").on(t.userId),
+    index("reports_status_idx").on(t.status)
   ]
 );
 var rooms = pgTable2(
@@ -241,7 +170,7 @@ var rooms = pgTable2(
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
     updatedAt: timestamp2("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("rooms_report_idx").on(t.reportId)]
+  (t) => [index("rooms_report_idx").on(t.reportId)]
 );
 var items = pgTable2(
   "items",
@@ -263,7 +192,7 @@ var items = pgTable2(
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
     updatedAt: timestamp2("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("items_room_idx").on(t.roomId), index2("items_report_idx").on(t.reportId)]
+  (t) => [index("items_room_idx").on(t.roomId), index("items_report_idx").on(t.reportId)]
 );
 var photos = pgTable2(
   "photos",
@@ -287,10 +216,10 @@ var photos = pgTable2(
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
   (t) => [
-    index2("photos_report_idx").on(t.reportId),
-    index2("photos_room_idx").on(t.roomId),
-    index2("photos_item_idx").on(t.itemId),
-    index2("photos_property_idx").on(t.propertyId)
+    index("photos_report_idx").on(t.reportId),
+    index("photos_room_idx").on(t.roomId),
+    index("photos_item_idx").on(t.itemId),
+    index("photos_property_idx").on(t.propertyId)
   ]
 );
 var meterReadings = pgTable2(
@@ -306,7 +235,7 @@ var meterReadings = pgTable2(
     notes: text2("notes"),
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("meters_report_idx").on(t.reportId)]
+  (t) => [index("meters_report_idx").on(t.reportId)]
 );
 var keySets = pgTable2(
   "key_sets",
@@ -318,7 +247,7 @@ var keySets = pgTable2(
     notes: text2("notes"),
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("keys_report_idx").on(t.reportId)]
+  (t) => [index("keys_report_idx").on(t.reportId)]
 );
 var signatures = pgTable2(
   "signatures",
@@ -335,7 +264,7 @@ var signatures = pgTable2(
     ipAddress: text2("ip_address"),
     signedAt: timestamp2("signed_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("signatures_report_idx").on(t.reportId)]
+  (t) => [index("signatures_report_idx").on(t.reportId)]
 );
 var scheduledInspections = pgTable2(
   "scheduled_inspections",
@@ -351,7 +280,7 @@ var scheduledInspections = pgTable2(
     reportId: text2("report_id"),
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("scheduled_user_idx").on(t.userId), index2("scheduled_date_idx").on(t.scheduledFor)]
+  (t) => [index("scheduled_user_idx").on(t.userId), index("scheduled_date_idx").on(t.scheduledFor)]
 );
 var subscriptions = pgTable2(
   "subscriptions",
@@ -377,7 +306,7 @@ var subscriptions = pgTable2(
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
     updatedAt: timestamp2("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("subscriptions_user_idx").on(t.userId)]
+  (t) => [index("subscriptions_user_idx").on(t.userId)]
 );
 var auditLog = pgTable2(
   "audit_log",
@@ -390,7 +319,7 @@ var auditLog = pgTable2(
     detail: text2("detail"),
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).defaultNow().notNull()
   },
-  (t) => [index2("audit_entity_idx").on(t.entityType, t.entityId)]
+  (t) => [index("audit_entity_idx").on(t.entityType, t.entityId)]
 );
 var bookingRequests = pgTable2(
   "booking_requests",
@@ -436,9 +365,9 @@ var bookingRequests = pgTable2(
     updatedAt: timestamp2("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
   (t) => [
-    index2("booking_status_idx").on(t.status),
-    index2("booking_date_idx").on(t.requestedDate),
-    index2("booking_updated_idx").on(t.updatedAt)
+    index("booking_status_idx").on(t.status),
+    index("booking_date_idx").on(t.requestedDate),
+    index("booking_updated_idx").on(t.updatedAt)
   ]
 );
 var tenantReports = pgTable2("tenant_reports", {
@@ -464,7 +393,7 @@ var tenantAssets = pgTable2(
     ready: boolean2("ready").notNull().default(false),
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("tenant_assets_share_idx").on(t.shareId)]
+  (t) => [index("tenant_assets_share_idx").on(t.shareId)]
 );
 var tenantRateLimits = pgTable2("tenant_rate_limits", {
   key: text2("key").primaryKey(),
@@ -480,38 +409,12 @@ var bookingAccessLinks = pgTable2(
     expiresAt: timestamp2("expires_at", { mode: "date", precision: 3 }).notNull(),
     createdAt: timestamp2("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull()
   },
-  (t) => [index2("booking_access_email_idx").on(t.email), index2("booking_access_expiry_idx").on(t.expiresAt)]
+  (t) => [index("booking_access_email_idx").on(t.email), index("booking_access_expiry_idx").on(t.expiresAt)]
 );
 
 // src/api/database/__client.ts
 var client = postgres(process.env.DATABASE_URL, { prepare: false });
 var db = drizzle(client, { schema: schema_exports });
-
-// src/api/auth.ts
-var auth = betterAuth({
-  basePath: "/api/auth",
-  baseURL: process.env.WEBSITE_URL,
-  database: drizzleAdapter(db, { provider: "pg" }),
-  emailAndPassword: { enabled: true },
-  secret: process.env.BETTER_AUTH_SECRET,
-  user: {
-    additionalFields: {
-      role: { type: "string", required: false, defaultValue: "clerk", input: true },
-      companyName: { type: "string", required: false, input: true },
-      phone: { type: "string", required: false, input: true },
-      disabled: { type: "boolean", required: false, defaultValue: false, input: false }
-    }
-  },
-  trustedOrigins: (request) => {
-    const origin = request?.headers.get("origin");
-    return origin ? [origin] : ["*"];
-  },
-  plugins: [expo()]
-});
-
-// src/api/routes/account.ts
-import { eq } from "drizzle-orm";
-import { z } from "zod";
 
 // src/api/lib/domain.ts
 var REPORT_TYPE_LABELS = {
@@ -542,7 +445,7 @@ var CHANGE_STATUS_LABELS = {
   missing: "Missing",
   cleaning_required: "Cleaning required"
 };
-var USER_ROLES = ["clerk", "agency", "landlord", "admin"];
+var SELF_ASSIGNABLE_ROLES = ["clerk", "agency", "landlord"];
 var FABRIC = [
   "Walls",
   "Ceiling",
@@ -691,22 +594,91 @@ function suggestedRooms(input) {
 }
 
 // src/api/middleware/auth.ts
+import { eq } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
-var withUser = base.use(async ({ context, next }) => {
-  const session2 = await auth.api.getSession({ headers: context.headers });
-  return next({
-    context: {
-      user: session2?.user ?? null,
-      session: session2?.session ?? null
+
+// src/api/lib/supabase-auth.ts
+import { createRemoteJWKSet, jwtVerify } from "jose";
+function supabaseUrl() {
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  return url ? url.replace(/\/+$/, "") : null;
+}
+var keys = null;
+var keysFor = null;
+async function verifyAccessToken(headers) {
+  const header = headers.get("authorization") ?? "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+  const url = supabaseUrl();
+  if (!token || !url) return null;
+  if (!keys || keysFor !== url) {
+    keys = createRemoteJWKSet(new URL(`${url}/auth/v1/.well-known/jwks.json`), { cooldownDuration: 3e4 });
+    keysFor = url;
+  }
+  try {
+    const { payload } = await jwtVerify(token, keys, {
+      issuer: `${url}/auth/v1`,
+      audience: "authenticated"
+    });
+    if (typeof payload.sub !== "string" || typeof payload.email !== "string") return null;
+    const meta = payload.user_metadata ?? {};
+    return {
+      id: payload.sub,
+      email: payload.email,
+      name: typeof meta.name === "string" ? meta.name : null,
+      companyName: typeof meta.company_name === "string" ? meta.company_name : null
+    };
+  } catch {
+    return null;
+  }
+}
+
+// src/api/middleware/auth.ts
+function adminEmails() {
+  return new Set(
+    (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)
+  );
+}
+async function loadUser(claims) {
+  let [row] = await db.select().from(profiles).where(eq(profiles.id, claims.id));
+  if (!row) {
+    try {
+      [row] = await db.insert(profiles).values({
+        id: claims.id,
+        email: claims.email,
+        name: claims.name || claims.email.split("@")[0],
+        companyName: claims.companyName
+      }).onConflictDoNothing().returning();
+    } catch {
+      return null;
     }
-  });
+    if (!row) [row] = await db.select().from(profiles).where(eq(profiles.id, claims.id));
+    if (!row) return null;
+  }
+  const operator = adminEmails().has(claims.email.toLowerCase());
+  return {
+    id: claims.id,
+    name: row.name || claims.email,
+    email: claims.email,
+    image: null,
+    role: operator ? "admin" : row.role,
+    companyName: row.companyName,
+    phone: row.phone,
+    disabled: row.disabled
+  };
+}
+async function currentUser(headers) {
+  const claims = await verifyAccessToken(headers);
+  return claims ? loadUser(claims) : null;
+}
+var withUser = base.use(async ({ context, next }) => {
+  const user = await currentUser(context.headers);
+  return next({ context: { user: user?.disabled ? null : user, session: null } });
 });
 var authed = base.use(async ({ context, next }) => {
-  const session2 = await auth.api.getSession({ headers: context.headers });
-  if (!session2) throw new ORPCError("UNAUTHORIZED");
-  const user2 = session2.user;
-  if (user2.disabled) throw new ORPCError("FORBIDDEN", { message: "This account has been disabled." });
-  return next({ context: { user: user2, session: session2.session } });
+  const user = await currentUser(context.headers);
+  if (!user) throw new ORPCError("UNAUTHORIZED");
+  if (user.disabled) throw new ORPCError("FORBIDDEN", { message: "This account has been disabled." });
+  return next({ context: { user, session: null } });
 });
 var adminOnly = authed.use(async ({ context, next }) => {
   if (context.user.role !== "admin") throw new ORPCError("FORBIDDEN", { message: "Admin access required." });
@@ -714,22 +686,23 @@ var adminOnly = authed.use(async ({ context, next }) => {
 });
 
 // src/api/routes/account.ts
-var account2 = {
+var account = {
   /** The signed-in user, or null — used to gate the UI. */
   me: withUser.handler(async ({ context }) => {
     if (!context.user) return null;
-    const [row] = await db.select().from(user).where(eq(user.id, context.user.id));
+    const [row] = await db.select().from(profiles).where(eq2(profiles.id, context.user.id));
     if (!row) return null;
-    const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.userId, row.id));
+    const [subscription] = await db.select().from(subscriptions).where(eq2(subscriptions.userId, row.id));
     return {
       id: row.id,
       name: row.name,
       email: row.email,
-      image: row.image,
-      role: row.role ?? "clerk",
+      image: null,
+      // The operator list (ADMIN_EMAILS) can grant admin without a database change.
+      role: context.user.role ?? row.role ?? "clerk",
       companyName: row.companyName,
       phone: row.phone,
-      disabled: row.disabled ?? false,
+      disabled: row.disabled,
       subscription: subscription ?? null
     };
   }),
@@ -738,15 +711,16 @@ var account2 = {
       name: z.string().min(1).max(160).optional(),
       companyName: z.string().max(160).optional().nullable(),
       phone: z.string().max(40).optional().nullable(),
-      role: z.enum(USER_ROLES).optional()
+      // "admin" is deliberately not selectable: it would let anyone read every account's data.
+      role: z.enum(SELF_ASSIGNABLE_ROLES).optional()
     })
   ).handler(async ({ input, context }) => {
-    const [row] = await db.update(user).set({ ...input, updatedAt: /* @__PURE__ */ new Date() }).where(eq(user.id, context.user.id)).returning();
+    const [row] = await db.update(profiles).set({ ...input, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(profiles.id, context.user.id)).returning();
     return {
       id: row.id,
       name: row.name,
       email: row.email,
-      role: row.role ?? "clerk",
+      role: context.user.role === "admin" ? "admin" : row.role,
       companyName: row.companyName,
       phone: row.phone
     };
@@ -1055,7 +1029,7 @@ var addresses = {
 
 // src/api/routes/bookings.ts
 import { ORPCError as ORPCError2 } from "@orpc/server";
-import { and as and3, desc as desc2, eq as eq3, sql } from "drizzle-orm";
+import { and as and3, desc as desc2, eq as eq4, sql } from "drizzle-orm";
 import { z as z4 } from "zod";
 
 // src/api/lib/booking-terms.ts
@@ -1575,7 +1549,7 @@ function roomsSummary(r, lang = "en") {
 
 // src/api/lib/booking-customer.ts
 import { createHash, randomBytes } from "node:crypto";
-import { and as and2, desc, eq as eq2, gt, lt as lt2 } from "drizzle-orm";
+import { and as and2, desc, eq as eq3, gt, lt as lt2 } from "drizzle-orm";
 var CANONICAL_ORIGIN = "https://in360view.co.uk";
 var LINK_DAYS = 60;
 var OFFICE_PHONE = { en: "07990 060618", es: "+44 7990 060618" };
@@ -1605,11 +1579,11 @@ async function issueBookingLink(email, origin) {
 }
 async function emailForToken(token) {
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return null;
-  const [link] = await db.select().from(bookingAccessLinks).where(and2(eq2(bookingAccessLinks.tokenHash, digest(token)), gt(bookingAccessLinks.expiresAt, /* @__PURE__ */ new Date())));
+  const [link] = await db.select().from(bookingAccessLinks).where(and2(eq3(bookingAccessLinks.tokenHash, digest(token)), gt(bookingAccessLinks.expiresAt, /* @__PURE__ */ new Date())));
   return link?.email ?? null;
 }
 async function bookingsForEmail(email) {
-  return db.select().from(bookingRequests).where(eq2(bookingRequests.contactEmail, normaliseEmail(email))).orderBy(desc(bookingRequests.requestedDate), desc(bookingRequests.createdAt));
+  return db.select().from(bookingRequests).where(eq3(bookingRequests.contactEmail, normaliseEmail(email))).orderBy(desc(bookingRequests.requestedDate), desc(bookingRequests.createdAt));
 }
 function customerView(b) {
   return {
@@ -1906,14 +1880,14 @@ var slotInput = {
   notifyCustomer: z4.boolean().optional().default(true)
 };
 async function findBooking(id2) {
-  const [row] = await db.select().from(bookingRequests).where(eq3(bookingRequests.id, id2));
+  const [row] = await db.select().from(bookingRequests).where(eq4(bookingRequests.id, id2));
   if (!row) throw new ORPCError2("NOT_FOUND", { message: "Booking not found" });
   return row;
 }
 async function confirmAndEmail(row, headers) {
   const res = await sendConfirmedEmail(row, siteOrigin(headers));
   if (!res.sent) return { ...row, emailed: false };
-  const [updated] = await db.update(bookingRequests).set({ confirmationSentAt: /* @__PURE__ */ new Date() }).where(eq3(bookingRequests.id, row.id)).returning();
+  const [updated] = await db.update(bookingRequests).set({ confirmationSentAt: /* @__PURE__ */ new Date() }).where(eq4(bookingRequests.id, row.id)).returning();
   return { ...updated, emailed: true };
 }
 function bookingReference() {
@@ -1987,14 +1961,14 @@ var bookings = {
     const ack = await sendReceivedEmail(saved, siteOrigin(context.headers));
     return { id: row.id, reference: row.reference, emailed: ack.sent };
   }),
-  list: authed.input(
+  list: adminOnly.input(
     z4.object({
       status: z4.enum(["all", ...BOOKING_STATUSES]).default("all"),
       limit: z4.number().int().min(1).max(200).default(100)
     }).default({ status: "all", limit: 100 })
   ).handler(async ({ input }) => {
     purgeExpiredBookingsSoon();
-    const where = input.status === "all" ? void 0 : eq3(bookingRequests.status, input.status);
+    const where = input.status === "all" ? void 0 : eq4(bookingRequests.status, input.status);
     const rows = await db.select().from(bookingRequests).where(where).orderBy(desc2(bookingRequests.createdAt)).limit(input.limit);
     const counts = await db.select({ status: bookingRequests.status, n: sql`count(*)` }).from(bookingRequests).groupBy(bookingRequests.status);
     const byStatus = { all: 0 };
@@ -2005,12 +1979,12 @@ var bookings = {
     }
     return { bookings: rows, counts: byStatus };
   }),
-  get: authed.input(z4.object({ id: z4.string() })).handler(async ({ input }) => {
-    const [row] = await db.select().from(bookingRequests).where(eq3(bookingRequests.id, input.id));
+  get: adminOnly.input(z4.object({ id: z4.string() })).handler(async ({ input }) => {
+    const [row] = await db.select().from(bookingRequests).where(eq4(bookingRequests.id, input.id));
     if (!row) throw new ORPCError2("NOT_FOUND", { message: "Booking not found" });
     return row;
   }),
-  update: authed.input(
+  update: adminOnly.input(
     z4.object({
       id: z4.string(),
       status: z4.enum(BOOKING_STATUSES).optional(),
@@ -2020,7 +1994,7 @@ var bookings = {
   ).handler(async ({ input, context }) => {
     const { id: id2, notifyCustomer, ...patch } = input;
     const before = await findBooking(id2);
-    const [row] = await db.update(bookingRequests).set({ ...patch, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(bookingRequests.id, id2)).returning();
+    const [row] = await db.update(bookingRequests).set({ ...patch, updatedAt: /* @__PURE__ */ new Date() }).where(eq4(bookingRequests.id, id2)).returning();
     if (!row) throw new ORPCError2("NOT_FOUND", { message: "Booking not found" });
     let emailed = null;
     if (notifyCustomer && patch.status && patch.status !== before.status) {
@@ -2030,15 +2004,15 @@ var bookings = {
     return { ...row, emailed };
   }),
   /** Re-sends the "you're booked in" email, e.g. after the customer lost it. */
-  resendConfirmation: authed.input(z4.object({ id: z4.string() })).handler(async ({ input, context }) => {
+  resendConfirmation: adminOnly.input(z4.object({ id: z4.string() })).handler(async ({ input, context }) => {
     const row = await findBooking(input.id);
     if (row.status !== "confirmed") {
       throw new ORPCError2("BAD_REQUEST", { message: "Only confirmed bookings have a confirmation to send." });
     }
     return confirmAndEmail(row, context.headers);
   }),
-  remove: authed.input(z4.object({ id: z4.string() })).handler(async ({ input }) => {
-    await db.delete(bookingRequests).where(eq3(bookingRequests.id, input.id));
+  remove: adminOnly.input(z4.object({ id: z4.string() })).handler(async ({ input }) => {
+    await db.delete(bookingRequests).where(eq4(bookingRequests.id, input.id));
     return { ok: true };
   }),
   /**
@@ -2046,14 +2020,14 @@ var bookings = {
    * inspection from it. Address is stored as one line by the public form, so the
    * trailing comma-separated parts become the town and postcode where possible.
    */
-  convert: authed.input(z4.object({ id: z4.string(), ...slotInput })).handler(async ({ input, context }) => {
+  convert: adminOnly.input(z4.object({ id: z4.string(), ...slotInput })).handler(async ({ input, context }) => {
     const found = await findBooking(input.id);
     const [booking] = await db.update(bookingRequests).set({
       status: "confirmed",
       confirmedDate: input.confirmedDate ?? found.confirmedDate ?? found.requestedDate,
       confirmedTime: input.confirmedTime ?? found.confirmedTime ?? found.requestedTime,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq3(bookingRequests.id, found.id)).returning();
+    }).where(eq4(bookingRequests.id, found.id)).returning();
     const alreadyConfirmed = found.status === "confirmed" && found.confirmationSentAt;
     const emailed = input.notifyCustomer && !alreadyConfirmed ? (await confirmAndEmail(booking, context.headers)).emailed : null;
     const esAddress = booking.propertyCountry === "ES" ? booking.propertyAddressEs : null;
@@ -2067,8 +2041,8 @@ var bookings = {
     const split = esAddress ? spanishAddressToProperty(esAddress) : { addressLine1, addressLine2, city, postcode: postcode.toUpperCase() || "\u2014" };
     const existing = await db.select({ id: properties.id }).from(properties).where(
       and3(
-        eq3(properties.userId, context.user.id),
-        eq3(properties.addressLine1, split.addressLine1)
+        eq4(properties.userId, context.user.id),
+        eq4(properties.addressLine1, split.addressLine1)
       )
     );
     if (existing.length) return { propertyId: existing[0].id, created: false, emailed };
@@ -2101,12 +2075,12 @@ var bookings = {
 };
 
 // src/api/routes/dashboard.ts
-import { and as and4, asc, desc as desc3, eq as eq4, gte, sql as sql2 } from "drizzle-orm";
+import { and as and4, asc, desc as desc3, eq as eq5, gte, sql as sql2 } from "drizzle-orm";
 var dashboard = {
   summary: authed.handler(async ({ context }) => {
     const isAdmin = context.user.role === "admin";
-    const mineProperties = isAdmin ? void 0 : eq4(properties.userId, context.user.id);
-    const mineReports = isAdmin ? void 0 : eq4(reports.userId, context.user.id);
+    const mineProperties = isAdmin ? void 0 : eq5(properties.userId, context.user.id);
+    const mineReports = isAdmin ? void 0 : eq5(reports.userId, context.user.id);
     const [[propertyCounts], [reportCounts]] = await Promise.all([
       db.select({
         total: sql2`count(*)`,
@@ -2132,7 +2106,7 @@ var dashboard = {
       roomCount: sql2`(select count(*) from rooms where rooms.report_id = reports.id)`,
       completedRooms: sql2`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = true)`,
       photoCount: sql2`(select count(*) from photos where photos.report_id = reports.id)`
-    }).from(reports).innerJoin(properties, eq4(properties.id, reports.propertyId)).where(mineReports).orderBy(desc3(reports.updatedAt)).limit(6);
+    }).from(reports).innerJoin(properties, eq5(properties.id, reports.propertyId)).where(mineReports).orderBy(desc3(reports.updatedAt)).limit(6);
     const upcoming = await db.select({
       id: scheduledInspections.id,
       type: scheduledInspections.type,
@@ -2141,11 +2115,11 @@ var dashboard = {
       propertyId: properties.id,
       addressLine1: properties.addressLine1,
       postcode: properties.postcode
-    }).from(scheduledInspections).innerJoin(properties, eq4(properties.id, scheduledInspections.propertyId)).where(
+    }).from(scheduledInspections).innerJoin(properties, eq5(properties.id, scheduledInspections.propertyId)).where(
       and4(
-        eq4(scheduledInspections.status, "scheduled"),
+        eq5(scheduledInspections.status, "scheduled"),
         gte(scheduledInspections.scheduledFor, new Date(Date.now() - 864e5)),
-        isAdmin ? void 0 : eq4(scheduledInspections.userId, context.user.id)
+        isAdmin ? void 0 : eq5(scheduledInspections.userId, context.user.id)
       )
     ).orderBy(asc(scheduledInspections.scheduledFor)).limit(6);
     const photoTotal = await db.select({ total: sql2`count(*)` }).from(photos).where(
@@ -2183,7 +2157,7 @@ var dashboard = {
 
 // src/api/routes/documents.ts
 import { ORPCError as ORPCError5 } from "@orpc/server";
-import { eq as eq7 } from "drizzle-orm";
+import { eq as eq8 } from "drizzle-orm";
 import { z as z7 } from "zod";
 
 // src/api/lib/brand.ts
@@ -3293,12 +3267,12 @@ async function buildReportPdf(data) {
 
 // src/api/routes/reports.ts
 import { ORPCError as ORPCError4 } from "@orpc/server";
-import { and as and6, desc as desc5, eq as eq6, gte as gte2, inArray as inArray2, lte, sql as sql4 } from "drizzle-orm";
+import { and as and6, desc as desc5, eq as eq7, gte as gte2, inArray as inArray2, lte, sql as sql4 } from "drizzle-orm";
 import { z as z6 } from "zod";
 
 // src/api/routes/properties.ts
 import { ORPCError as ORPCError3 } from "@orpc/server";
-import { and as and5, desc as desc4, eq as eq5, ilike, or, sql as sql3 } from "drizzle-orm";
+import { and as and5, desc as desc4, eq as eq6, ilike, or, sql as sql3 } from "drizzle-orm";
 import { z as z5 } from "zod";
 var propertyInput = z5.object({
   reference: z5.string().max(60).optional().nullable(),
@@ -3318,7 +3292,7 @@ var propertyInput = z5.object({
   notes: z5.string().max(4e3).optional().nullable()
 });
 function ownershipFilter(userId, role) {
-  return role === "admin" ? void 0 : eq5(properties.userId, userId);
+  return role === "admin" ? void 0 : eq6(properties.userId, userId);
 }
 async function frontPhotoUrls(property) {
   if (!property.frontPhotoKey) return { frontPhotoUrl: null, frontPhotoThumbUrl: null };
@@ -3328,7 +3302,7 @@ async function frontPhotoUrls(property) {
   };
 }
 async function assertPropertyAccess(propertyId, userId, role) {
-  const [property] = await db.select().from(properties).where(eq5(properties.id, propertyId));
+  const [property] = await db.select().from(properties).where(eq6(properties.id, propertyId));
   if (!property) throw new ORPCError3("NOT_FOUND", { message: "Property not found" });
   if (property.userId !== userId && role !== "admin") throw new ORPCError3("FORBIDDEN");
   return property;
@@ -3342,7 +3316,7 @@ var properties2 = {
     }).default({ includeArchived: false, limit: 100 })
   ).handler(async ({ input, context }) => {
     const where = [ownershipFilter(context.user.id, context.user.role)];
-    if (!input.includeArchived) where.push(eq5(properties.archived, false));
+    if (!input.includeArchived) where.push(eq6(properties.archived, false));
     if (input.search?.trim()) {
       const q = `%${input.search.trim()}%`;
       where.push(
@@ -3383,12 +3357,12 @@ var properties2 = {
       pdfKey: reports.pdfKey,
       roomCount: sql3`(select count(*) from rooms where rooms.report_id = reports.id)`,
       photoCount: sql3`(select count(*) from photos where photos.report_id = reports.id)`
-    }).from(reports).where(eq5(reports.propertyId, input.id)).orderBy(desc4(reports.inspectionDate));
-    const recentPhotos = await db.select().from(photos).where(eq5(photos.propertyId, input.id)).orderBy(desc4(photos.createdAt)).limit(24);
+    }).from(reports).where(eq6(reports.propertyId, input.id)).orderBy(desc4(reports.inspectionDate));
+    const recentPhotos = await db.select().from(photos).where(eq6(photos.propertyId, input.id)).orderBy(desc4(photos.createdAt)).limit(24);
     const upcoming = await db.select().from(scheduledInspections).where(
       and5(
-        eq5(scheduledInspections.propertyId, input.id),
-        eq5(scheduledInspections.status, "scheduled")
+        eq6(scheduledInspections.propertyId, input.id),
+        eq6(scheduledInspections.status, "scheduled")
       )
     ).orderBy(scheduledInspections.scheduledFor);
     return {
@@ -3412,7 +3386,7 @@ var properties2 = {
   update: authed.input(propertyInput.partial().extend({ id: z5.string() })).handler(async ({ input, context }) => {
     await assertPropertyAccess(input.id, context.user.id, context.user.role);
     const { id: id2, ...values } = input;
-    const [row] = await db.update(properties).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq5(properties.id, id2)).returning();
+    const [row] = await db.update(properties).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq6(properties.id, id2)).returning();
     return row;
   }),
   /**
@@ -3451,7 +3425,7 @@ var properties2 = {
       frontPhotoHeight: input.height ?? null,
       frontPhotoUpdatedAt: /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq5(properties.id, input.propertyId)).returning();
+    }).where(eq6(properties.id, input.propertyId)).returning();
     if (property.frontPhotoKey && property.frontPhotoKey !== input.storageKey) {
       await deleteObject(property.frontPhotoKey);
       if (property.frontPhotoThumbKey) await deleteObject(property.frontPhotoThumbKey);
@@ -3467,32 +3441,32 @@ var properties2 = {
       frontPhotoHeight: null,
       frontPhotoUpdatedAt: null,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq5(properties.id, input.propertyId));
+    }).where(eq6(properties.id, input.propertyId));
     if (property.frontPhotoKey) await deleteObject(property.frontPhotoKey);
     if (property.frontPhotoThumbKey) await deleteObject(property.frontPhotoThumbKey);
     return { ok: true };
   }),
   setArchived: authed.input(z5.object({ id: z5.string(), archived: z5.boolean() })).handler(async ({ input, context }) => {
     await assertPropertyAccess(input.id, context.user.id, context.user.role);
-    const [row] = await db.update(properties).set({ archived: input.archived, updatedAt: /* @__PURE__ */ new Date() }).where(eq5(properties.id, input.id)).returning();
+    const [row] = await db.update(properties).set({ archived: input.archived, updatedAt: /* @__PURE__ */ new Date() }).where(eq6(properties.id, input.id)).returning();
     return row;
   }),
   remove: authed.input(z5.object({ id: z5.string() })).handler(async ({ input, context }) => {
     const property = await assertPropertyAccess(input.id, context.user.id, context.user.role);
     if (property.frontPhotoKey) await deleteObject(property.frontPhotoKey);
     if (property.frontPhotoThumbKey) await deleteObject(property.frontPhotoThumbKey);
-    const reportRows = await db.select({ id: reports.id }).from(reports).where(eq5(reports.propertyId, input.id));
+    const reportRows = await db.select({ id: reports.id }).from(reports).where(eq6(reports.propertyId, input.id));
     for (const r of reportRows) {
-      await db.delete(items).where(eq5(items.reportId, r.id));
-      await db.delete(rooms).where(eq5(rooms.reportId, r.id));
-      await db.delete(signatures).where(eq5(signatures.reportId, r.id));
-      await db.delete(meterReadings).where(eq5(meterReadings.reportId, r.id));
-      await db.delete(keySets).where(eq5(keySets.reportId, r.id));
+      await db.delete(items).where(eq6(items.reportId, r.id));
+      await db.delete(rooms).where(eq6(rooms.reportId, r.id));
+      await db.delete(signatures).where(eq6(signatures.reportId, r.id));
+      await db.delete(meterReadings).where(eq6(meterReadings.reportId, r.id));
+      await db.delete(keySets).where(eq6(keySets.reportId, r.id));
     }
-    await db.delete(photos).where(eq5(photos.propertyId, input.id));
-    await db.delete(reports).where(eq5(reports.propertyId, input.id));
-    await db.delete(scheduledInspections).where(eq5(scheduledInspections.propertyId, input.id));
-    await db.delete(properties).where(eq5(properties.id, input.id));
+    await db.delete(photos).where(eq6(photos.propertyId, input.id));
+    await db.delete(reports).where(eq6(reports.propertyId, input.id));
+    await db.delete(scheduledInspections).where(eq6(scheduledInspections.propertyId, input.id));
+    await db.delete(properties).where(eq6(properties.id, input.id));
     return { ok: true };
   }),
   schedule: authed.input(
@@ -3515,17 +3489,17 @@ var properties2 = {
     return row;
   }),
   cancelSchedule: authed.input(z5.object({ id: z5.string() })).handler(async ({ input, context }) => {
-    const [row] = await db.select().from(scheduledInspections).where(eq5(scheduledInspections.id, input.id));
+    const [row] = await db.select().from(scheduledInspections).where(eq6(scheduledInspections.id, input.id));
     if (!row) throw new ORPCError3("NOT_FOUND");
     if (row.userId !== context.user.id && context.user.role !== "admin") throw new ORPCError3("FORBIDDEN");
-    await db.update(scheduledInspections).set({ status: "cancelled" }).where(eq5(scheduledInspections.id, input.id));
+    await db.update(scheduledInspections).set({ status: "cancelled" }).where(eq6(scheduledInspections.id, input.id));
     return { ok: true };
   })
 };
 
 // src/api/routes/reports.ts
 async function loadReport(reportId, userId, role) {
-  const [report] = await db.select().from(reports).where(eq6(reports.id, reportId));
+  const [report] = await db.select().from(reports).where(eq7(reports.id, reportId));
   if (!report) throw new ORPCError4("NOT_FOUND", { message: "Report not found" });
   if (report.userId !== userId && role !== "admin") throw new ORPCError4("FORBIDDEN");
   return report;
@@ -3562,8 +3536,8 @@ async function seedRoomsFromTemplates(reportId, roomDefs) {
   }
 }
 async function copyStructureFromReport(sourceReportId, targetReportId) {
-  const sourceRooms = await db.select().from(rooms).where(eq6(rooms.reportId, sourceReportId)).orderBy(rooms.sortOrder);
-  const sourceItems = await db.select().from(items).where(eq6(items.reportId, sourceReportId)).orderBy(items.sortOrder);
+  const sourceRooms = await db.select().from(rooms).where(eq7(rooms.reportId, sourceReportId)).orderBy(rooms.sortOrder);
+  const sourceItems = await db.select().from(items).where(eq7(items.reportId, sourceReportId)).orderBy(items.sortOrder);
   for (const room of sourceRooms) {
     const roomId = newId("rm");
     await db.insert(rooms).values({
@@ -3602,10 +3576,10 @@ var reports2 = {
     }).default({ limit: 100 })
   ).handler(async ({ input, context }) => {
     const where = [];
-    if (context.user.role !== "admin") where.push(eq6(reports.userId, context.user.id));
-    if (input.propertyId) where.push(eq6(reports.propertyId, input.propertyId));
-    if (input.type) where.push(eq6(reports.type, input.type));
-    if (input.status) where.push(eq6(reports.status, input.status));
+    if (context.user.role !== "admin") where.push(eq7(reports.userId, context.user.id));
+    if (input.propertyId) where.push(eq7(reports.propertyId, input.propertyId));
+    if (input.type) where.push(eq7(reports.type, input.type));
+    if (input.status) where.push(eq7(reports.status, input.status));
     if (input.from) where.push(gte2(reports.inspectionDate, new Date(input.from)));
     if (input.to) where.push(lte(reports.inspectionDate, new Date(input.to)));
     const rows = await db.select({
@@ -3615,7 +3589,7 @@ var reports2 = {
       roomCount: sql4`(select count(*) from rooms where rooms.report_id = reports.id)`,
       completedRooms: sql4`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = true)`,
       signatureCount: sql4`(select count(*) from signatures where signatures.report_id = reports.id)`
-    }).from(reports).innerJoin(properties, eq6(properties.id, reports.propertyId)).where(where.length ? and6(...where) : void 0).orderBy(desc5(reports.updatedAt)).limit(input.limit);
+    }).from(reports).innerJoin(properties, eq7(properties.id, reports.propertyId)).where(where.length ? and6(...where) : void 0).orderBy(desc5(reports.updatedAt)).limit(input.limit);
     return rows.map((r) => ({
       ...r.report,
       photoCount: Number(r.photoCount ?? 0),
@@ -3636,9 +3610,9 @@ var reports2 = {
   /** Full report tree — rooms, items and photo metadata (thumbnails presigned). */
   get: authed.input(z6.object({ id: z6.string() })).handler(async ({ input, context }) => {
     const report = await loadReport(input.id, context.user.id, context.user.role);
-    const [property] = await db.select().from(properties).where(eq6(properties.id, report.propertyId));
-    const roomRows = await db.select().from(rooms).where(eq6(rooms.reportId, report.id)).orderBy(rooms.sortOrder);
-    const itemRows = await db.select().from(items).where(eq6(items.reportId, report.id)).orderBy(items.sortOrder);
+    const [property] = await db.select().from(properties).where(eq7(properties.id, report.propertyId));
+    const roomRows = await db.select().from(rooms).where(eq7(rooms.reportId, report.id)).orderBy(rooms.sortOrder);
+    const itemRows = await db.select().from(items).where(eq7(items.reportId, report.id)).orderBy(items.sortOrder);
     const photoRows = await db.select({
       id: photos.id,
       roomId: photos.roomId,
@@ -3650,13 +3624,13 @@ var reports2 = {
       width: photos.width,
       height: photos.height,
       createdAt: photos.createdAt
-    }).from(photos).where(eq6(photos.reportId, report.id)).orderBy(photos.sortOrder);
-    const signatureRows = await db.select().from(signatures).where(eq6(signatures.reportId, report.id));
-    const meters = await db.select().from(meterReadings).where(eq6(meterReadings.reportId, report.id));
-    const keys = await db.select().from(keySets).where(eq6(keySets.reportId, report.id));
+    }).from(photos).where(eq7(photos.reportId, report.id)).orderBy(photos.sortOrder);
+    const signatureRows = await db.select().from(signatures).where(eq7(signatures.reportId, report.id));
+    const meters = await db.select().from(meterReadings).where(eq7(meterReadings.reportId, report.id));
+    const keys2 = await db.select().from(keySets).where(eq7(keySets.reportId, report.id));
     let previousItems = {};
     if (report.baseReportId) {
-      const baseItems = await db.select().from(items).where(eq6(items.reportId, report.baseReportId));
+      const baseItems = await db.select().from(items).where(eq7(items.reportId, report.baseReportId));
       previousItems = Object.fromEntries(
         baseItems.map((i) => [
           i.id,
@@ -3690,7 +3664,7 @@ var reports2 = {
         signatureRows.map(async (s) => ({ ...s, url: await presignGet(s.storageKey) }))
       ),
       meters,
-      keys,
+      keys: keys2,
       previousItems,
       /**
        * The property's uploaded front elevation, when there is one. The report
@@ -3750,7 +3724,7 @@ var reports2 = {
       action: "created",
       detail: input.type
     });
-    const [row] = await db.select().from(reports).where(eq6(reports.id, id2));
+    const [row] = await db.select().from(reports).where(eq7(reports.id, id2));
     return row;
   }),
   update: authed.input(
@@ -3773,14 +3747,14 @@ var reports2 = {
       ...rest,
       ...inspectionDate ? { inspectionDate: new Date(inspectionDate) } : {},
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq6(reports.id, id2)).returning();
+    }).where(eq7(reports.id, id2)).returning();
     return row;
   }),
   /** Marks the report completed — still editable until it is signed and locked. */
   complete: authed.input(z6.object({ id: z6.string() })).handler(async ({ input, context }) => {
     const report = await loadReport(input.id, context.user.id, context.user.role);
     assertEditable(report);
-    const [row] = await db.update(reports).set({ status: "completed", completedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq6(reports.id, input.id)).returning();
+    const [row] = await db.update(reports).set({ status: "completed", completedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq7(reports.id, input.id)).returning();
     await db.insert(auditLog).values({
       id: newId("aud"),
       userId: context.user.id,
@@ -3795,19 +3769,19 @@ var reports2 = {
     if (report.lockedAt) {
       throw new ORPCError4("CONFLICT", { message: "Signed reports cannot be reopened." });
     }
-    const [row] = await db.update(reports).set({ status: "draft", completedAt: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq6(reports.id, input.id)).returning();
+    const [row] = await db.update(reports).set({ status: "draft", completedAt: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq7(reports.id, input.id)).returning();
     return row;
   }),
   remove: authed.input(z6.object({ id: z6.string() })).handler(async ({ input, context }) => {
     const report = await loadReport(input.id, context.user.id, context.user.role);
     if (report.lockedAt) throw new ORPCError4("CONFLICT", { message: "Signed reports cannot be deleted." });
-    await db.delete(items).where(eq6(items.reportId, report.id));
-    await db.delete(rooms).where(eq6(rooms.reportId, report.id));
-    await db.delete(photos).where(eq6(photos.reportId, report.id));
-    await db.delete(signatures).where(eq6(signatures.reportId, report.id));
-    await db.delete(meterReadings).where(eq6(meterReadings.reportId, report.id));
-    await db.delete(keySets).where(eq6(keySets.reportId, report.id));
-    await db.delete(reports).where(eq6(reports.id, report.id));
+    await db.delete(items).where(eq7(items.reportId, report.id));
+    await db.delete(rooms).where(eq7(rooms.reportId, report.id));
+    await db.delete(photos).where(eq7(photos.reportId, report.id));
+    await db.delete(signatures).where(eq7(signatures.reportId, report.id));
+    await db.delete(meterReadings).where(eq7(meterReadings.reportId, report.id));
+    await db.delete(keySets).where(eq7(keySets.reportId, report.id));
+    await db.delete(reports).where(eq7(reports.id, report.id));
     return { ok: true };
   }),
   /** Check-in reports available as the basis for a check-out. */
@@ -3821,7 +3795,7 @@ var reports2 = {
       type: reports.type
     }).from(reports).where(
       and6(
-        eq6(reports.propertyId, input.propertyId),
+        eq7(reports.propertyId, input.propertyId),
         inArray2(reports.type, ["check_in", "mid_term"])
       )
     ).orderBy(desc5(reports.inspectionDate));
@@ -3843,13 +3817,13 @@ var reports2 = {
     ).handler(async ({ input, context }) => {
       const report = await loadReport(input.reportId, context.user.id, context.user.role);
       assertEditable(report);
-      await db.delete(meterReadings).where(eq6(meterReadings.reportId, report.id));
+      await db.delete(meterReadings).where(eq7(meterReadings.reportId, report.id));
       if (input.readings.length) {
         await db.insert(meterReadings).values(
           input.readings.map((r) => ({ id: newId("mtr"), reportId: report.id, ...r }))
         );
       }
-      return db.select().from(meterReadings).where(eq6(meterReadings.reportId, report.id));
+      return db.select().from(meterReadings).where(eq7(meterReadings.reportId, report.id));
     })
   },
   keys: {
@@ -3867,28 +3841,28 @@ var reports2 = {
     ).handler(async ({ input, context }) => {
       const report = await loadReport(input.reportId, context.user.id, context.user.role);
       assertEditable(report);
-      await db.delete(keySets).where(eq6(keySets.reportId, report.id));
+      await db.delete(keySets).where(eq7(keySets.reportId, report.id));
       if (input.keys.length) {
         await db.insert(keySets).values(input.keys.map((k) => ({ id: newId("key"), reportId: report.id, ...k })));
       }
-      return db.select().from(keySets).where(eq6(keySets.reportId, report.id));
+      return db.select().from(keySets).where(eq7(keySets.reportId, report.id));
     })
   }
 };
 
 // src/api/routes/documents.ts
 async function collectReportData(reportId) {
-  const [report] = await db.select().from(reports).where(eq7(reports.id, reportId));
-  const [property] = await db.select().from(properties).where(eq7(properties.id, report.propertyId));
-  const roomRows = await db.select().from(rooms).where(eq7(rooms.reportId, reportId)).orderBy(rooms.sortOrder);
-  const itemRows = await db.select().from(items).where(eq7(items.reportId, reportId)).orderBy(items.sortOrder);
-  const photoRows = await db.select().from(photos).where(eq7(photos.reportId, reportId)).orderBy(photos.sortOrder);
-  const signatureRows = await db.select().from(signatures).where(eq7(signatures.reportId, reportId));
-  const meters = await db.select().from(meterReadings).where(eq7(meterReadings.reportId, reportId));
-  const keys = await db.select().from(keySets).where(eq7(keySets.reportId, reportId));
+  const [report] = await db.select().from(reports).where(eq8(reports.id, reportId));
+  const [property] = await db.select().from(properties).where(eq8(properties.id, report.propertyId));
+  const roomRows = await db.select().from(rooms).where(eq8(rooms.reportId, reportId)).orderBy(rooms.sortOrder);
+  const itemRows = await db.select().from(items).where(eq8(items.reportId, reportId)).orderBy(items.sortOrder);
+  const photoRows = await db.select().from(photos).where(eq8(photos.reportId, reportId)).orderBy(photos.sortOrder);
+  const signatureRows = await db.select().from(signatures).where(eq8(signatures.reportId, reportId));
+  const meters = await db.select().from(meterReadings).where(eq8(meterReadings.reportId, reportId));
+  const keys2 = await db.select().from(keySets).where(eq8(keySets.reportId, reportId));
   let previousItems = {};
   if (report.baseReportId) {
-    const baseItems = await db.select().from(items).where(eq7(items.reportId, report.baseReportId));
+    const baseItems = await db.select().from(items).where(eq8(items.reportId, report.baseReportId));
     previousItems = Object.fromEntries(
       baseItems.map((i) => [
         i.id,
@@ -3917,7 +3891,7 @@ async function collectReportData(reportId) {
     })),
     signatures: signatureRows,
     meters,
-    keys,
+    keys: keys2,
     previousItems,
     logoBytes: await loadLogoBytes(),
     logoLightBytes: await loadLogoLightBytes()
@@ -3932,7 +3906,7 @@ var documents = {
     const key = `properties/${report.propertyId}/reports/${report.id}/${report.reference ?? report.id}.pdf`;
     await putObject(key, bytes, "application/pdf");
     const generatedAt = /* @__PURE__ */ new Date();
-    await db.update(reports).set({ pdfKey: key, pdfGeneratedAt: generatedAt, updatedAt: generatedAt }).where(eq7(reports.id, report.id));
+    await db.update(reports).set({ pdfKey: key, pdfGeneratedAt: generatedAt, updatedAt: generatedAt }).where(eq8(reports.id, report.id));
     await db.insert(auditLog).values({
       id: newId("aud"),
       userId: context.user.id,
@@ -3962,14 +3936,14 @@ var documents = {
     })
   ).handler(async ({ input, context }) => {
     const report = await loadReport(input.reportId, context.user.id, context.user.role);
-    const [property] = await db.select().from(properties).where(eq7(properties.id, report.propertyId));
+    const [property] = await db.select().from(properties).where(eq8(properties.id, report.propertyId));
     let key = report.pdfKey;
     if (!key) {
       const data = await collectReportData(report.id);
       const bytes = await buildReportPdf(data);
       key = `properties/${report.propertyId}/reports/${report.id}/${report.reference ?? report.id}.pdf`;
       await putObject(key, bytes, "application/pdf");
-      await db.update(reports).set({ pdfKey: key, pdfGeneratedAt: /* @__PURE__ */ new Date() }).where(eq7(reports.id, report.id));
+      await db.update(reports).set({ pdfKey: key, pdfGeneratedAt: /* @__PURE__ */ new Date() }).where(eq8(reports.id, report.id));
     }
     const url = await presignGet(key, 60 * 60 * 24 * 7);
     const address = [property.addressLine1, property.city, property.postcode].filter(Boolean).join(", ");
@@ -4012,10 +3986,10 @@ var documents = {
 
 // src/api/routes/inspection.ts
 import { ORPCError as ORPCError6 } from "@orpc/server";
-import { eq as eq8, sql as sql5 } from "drizzle-orm";
+import { eq as eq9, sql as sql5 } from "drizzle-orm";
 import { z as z8 } from "zod";
 async function loadRoom(roomId, userId, role) {
-  const [room] = await db.select().from(rooms).where(eq8(rooms.id, roomId));
+  const [room] = await db.select().from(rooms).where(eq9(rooms.id, roomId));
   if (!room) throw new ORPCError6("NOT_FOUND", { message: "Room not found" });
   const report = await loadReport(room.reportId, userId, role);
   return { room, report };
@@ -4023,7 +3997,7 @@ async function loadRoom(roomId, userId, role) {
 var conditionSchema = z8.enum(["excellent", "good", "fair", "poor", "damaged", "na"]).nullable().optional();
 var cleanlinessSchema = z8.enum(["clean", "generally_clean", "fair", "poor", "very_poor", "na"]).nullable().optional();
 async function touchReport(reportId) {
-  await db.update(reports).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq8(reports.id, reportId));
+  await db.update(reports).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq9(reports.id, reportId));
 }
 var inspection = {
   addRoom: authed.input(
@@ -4037,7 +4011,7 @@ var inspection = {
   ).handler(async ({ input, context }) => {
     const report = await loadReport(input.reportId, context.user.id, context.user.role);
     assertEditable(report);
-    const [{ max }] = await db.select({ max: sql5`coalesce(max(${rooms.sortOrder}), -1)` }).from(rooms).where(eq8(rooms.reportId, report.id));
+    const [{ max }] = await db.select({ max: sql5`coalesce(max(${rooms.sortOrder}), -1)` }).from(rooms).where(eq9(rooms.reportId, report.id));
     const roomId = newId("rm");
     await db.insert(rooms).values({
       id: roomId,
@@ -4055,7 +4029,7 @@ var inspection = {
       }
     }
     await touchReport(report.id);
-    const [row] = await db.select().from(rooms).where(eq8(rooms.id, roomId));
+    const [row] = await db.select().from(rooms).where(eq9(rooms.id, roomId));
     return row;
   }),
   updateRoom: authed.input(
@@ -4072,16 +4046,16 @@ var inspection = {
     const { report } = await loadRoom(input.id, context.user.id, context.user.role);
     assertEditable(report);
     const { id: id2, ...values } = input;
-    const [row] = await db.update(rooms).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq8(rooms.id, id2)).returning();
+    const [row] = await db.update(rooms).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq9(rooms.id, id2)).returning();
     await touchReport(report.id);
     return row;
   }),
   removeRoom: authed.input(z8.object({ id: z8.string() })).handler(async ({ input, context }) => {
     const { room, report } = await loadRoom(input.id, context.user.id, context.user.role);
     assertEditable(report);
-    await db.delete(items).where(eq8(items.roomId, room.id));
-    await db.delete(photos).where(eq8(photos.roomId, room.id));
-    await db.delete(rooms).where(eq8(rooms.id, room.id));
+    await db.delete(items).where(eq9(items.roomId, room.id));
+    await db.delete(photos).where(eq9(photos.roomId, room.id));
+    await db.delete(rooms).where(eq9(rooms.id, room.id));
     await touchReport(report.id);
     return { ok: true };
   }),
@@ -4089,7 +4063,7 @@ var inspection = {
     const report = await loadReport(input.reportId, context.user.id, context.user.role);
     assertEditable(report);
     for (const [i, id2] of input.ids.entries()) {
-      await db.update(rooms).set({ sortOrder: i }).where(eq8(rooms.id, id2));
+      await db.update(rooms).set({ sortOrder: i }).where(eq9(rooms.id, id2));
     }
     return { ok: true };
   }),
@@ -4102,7 +4076,7 @@ var inspection = {
   ).handler(async ({ input, context }) => {
     const { room, report } = await loadRoom(input.roomId, context.user.id, context.user.role);
     assertEditable(report);
-    const [{ max }] = await db.select({ max: sql5`coalesce(max(${items.sortOrder}), -1)` }).from(items).where(eq8(items.roomId, room.id));
+    const [{ max }] = await db.select({ max: sql5`coalesce(max(${items.sortOrder}), -1)` }).from(items).where(eq9(items.roomId, room.id));
     const id2 = newId("itm");
     await db.insert(items).values({
       id: id2,
@@ -4113,7 +4087,7 @@ var inspection = {
       sortOrder: Number(max ?? -1) + 1
     });
     await touchReport(report.id);
-    const [row] = await db.select().from(items).where(eq8(items.id, id2));
+    const [row] = await db.select().from(items).where(eq9(items.id, id2));
     return row;
   }),
   updateItem: authed.input(
@@ -4128,12 +4102,12 @@ var inspection = {
       changeStatus: z8.enum(["unchanged", "changed", "damaged", "missing", "cleaning_required"]).nullable().optional()
     })
   ).handler(async ({ input, context }) => {
-    const [item] = await db.select().from(items).where(eq8(items.id, input.id));
+    const [item] = await db.select().from(items).where(eq9(items.id, input.id));
     if (!item) throw new ORPCError6("NOT_FOUND", { message: "Item not found" });
     const report = await loadReport(item.reportId, context.user.id, context.user.role);
     assertEditable(report);
     const { id: id2, ...values } = input;
-    const [row] = await db.update(items).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq8(items.id, id2)).returning();
+    const [row] = await db.update(items).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq9(items.id, id2)).returning();
     await touchReport(report.id);
     return row;
   }),
@@ -4162,22 +4136,22 @@ var inspection = {
     const { room, report } = await loadRoom(input.roomId, context.user.id, context.user.role);
     assertEditable(report);
     if (input.room) {
-      await db.update(rooms).set({ ...input.room, updatedAt: /* @__PURE__ */ new Date() }).where(eq8(rooms.id, room.id));
+      await db.update(rooms).set({ ...input.room, updatedAt: /* @__PURE__ */ new Date() }).where(eq9(rooms.id, room.id));
     }
     for (const item of input.items) {
       const { id: id2, ...values } = item;
-      await db.update(items).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq8(items.id, id2));
+      await db.update(items).set({ ...values, updatedAt: /* @__PURE__ */ new Date() }).where(eq9(items.id, id2));
     }
     await touchReport(report.id);
     return { ok: true, savedItems: input.items.length };
   }),
   removeItem: authed.input(z8.object({ id: z8.string() })).handler(async ({ input, context }) => {
-    const [item] = await db.select().from(items).where(eq8(items.id, input.id));
+    const [item] = await db.select().from(items).where(eq9(items.id, input.id));
     if (!item) throw new ORPCError6("NOT_FOUND");
     const report = await loadReport(item.reportId, context.user.id, context.user.role);
     assertEditable(report);
-    await db.delete(photos).where(eq8(photos.itemId, item.id));
-    await db.delete(items).where(eq8(items.id, item.id));
+    await db.delete(photos).where(eq9(photos.itemId, item.id));
+    await db.delete(items).where(eq9(items.id, item.id));
     await touchReport(report.id);
     return { ok: true };
   })
@@ -4226,11 +4200,11 @@ var myBookings = {
 };
 
 // src/api/routes/photo-open.ts
-import { eq as eq9 } from "drizzle-orm";
+import { eq as eq10 } from "drizzle-orm";
 async function photoOpen(c) {
   const id2 = c.req.param("id");
   if (!id2) return c.text("Not found", 404);
-  const [photo] = await db.select({ storageKey: photos.storageKey, thumbKey: photos.thumbKey }).from(photos).where(eq9(photos.id, id2)).limit(1);
+  const [photo] = await db.select({ storageKey: photos.storageKey, thumbKey: photos.thumbKey }).from(photos).where(eq10(photos.id, id2)).limit(1);
   if (!photo) return c.text("That photograph is no longer available.", 404);
   const url = await presignGet(photo.storageKey ?? photo.thumbKey, 60 * 60);
   return c.redirect(url, 302);
@@ -4238,7 +4212,7 @@ async function photoOpen(c) {
 
 // src/api/routes/photos.ts
 import { ORPCError as ORPCError8 } from "@orpc/server";
-import { and as and7, eq as eq10, isNull, sql as sql7 } from "drizzle-orm";
+import { and as and7, eq as eq11, isNull, sql as sql7 } from "drizzle-orm";
 import { z as z10 } from "zod";
 var photos2 = {
   /**
@@ -4290,10 +4264,10 @@ var photos2 = {
     const report = await loadReport(input.reportId, context.user.id, context.user.role);
     assertEditable(report);
     if (input.clientId) {
-      const [existing] = await db.select().from(photos).where(and7(eq10(photos.reportId, report.id), eq10(photos.clientId, input.clientId)));
+      const [existing] = await db.select().from(photos).where(and7(eq11(photos.reportId, report.id), eq11(photos.clientId, input.clientId)));
       if (existing) return { ...existing, thumbUrl: await presignGet(existing.thumbKey ?? existing.storageKey) };
     }
-    const scope = input.itemId ? eq10(photos.itemId, input.itemId) : input.roomId ? and7(eq10(photos.roomId, input.roomId), isNull(photos.itemId)) : eq10(photos.reportId, report.id);
+    const scope = input.itemId ? eq11(photos.itemId, input.itemId) : input.roomId ? and7(eq11(photos.roomId, input.roomId), isNull(photos.itemId)) : eq11(photos.reportId, report.id);
     const [{ max }] = await db.select({ max: sql7`coalesce(max(${photos.sortOrder}), -1)` }).from(photos).where(scope);
     const id2 = newId("pho");
     await db.insert(photos).values({
@@ -4312,8 +4286,8 @@ var photos2 = {
       clientId: input.clientId ?? null,
       sortOrder: Number(max ?? -1) + 1
     });
-    await db.update(reports).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq10(reports.id, report.id));
-    const [row] = await db.select().from(photos).where(eq10(photos.id, id2));
+    await db.update(reports).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq11(reports.id, report.id));
+    const [row] = await db.select().from(photos).where(eq11(photos.id, id2));
     return { ...row, thumbUrl: await presignGet(row.thumbKey ?? row.storageKey) };
   }),
   /** Paged thumbnails — never returns every photo of an inspection at once. */
@@ -4330,11 +4304,11 @@ var photos2 = {
     const where = [];
     if (input.reportId) {
       await loadReport(input.reportId, context.user.id, context.user.role);
-      where.push(eq10(photos.reportId, input.reportId));
+      where.push(eq11(photos.reportId, input.reportId));
     }
-    if (input.roomId) where.push(eq10(photos.roomId, input.roomId));
-    if (input.itemId) where.push(eq10(photos.itemId, input.itemId));
-    if (input.propertyId) where.push(eq10(photos.propertyId, input.propertyId));
+    if (input.roomId) where.push(eq11(photos.roomId, input.roomId));
+    if (input.itemId) where.push(eq11(photos.itemId, input.itemId));
+    if (input.propertyId) where.push(eq11(photos.propertyId, input.propertyId));
     if (!where.length) throw new ORPCError8("BAD_REQUEST", { message: "A scope is required" });
     const rows = await db.select().from(photos).where(and7(...where)).orderBy(photos.sortOrder).limit(input.limit + 1).offset(input.offset);
     const page = rows.slice(0, input.limit);
@@ -4354,29 +4328,29 @@ var photos2 = {
   }),
   /** Full-size URL, fetched only when a photo is opened. */
   full: authed.input(z10.object({ id: z10.string() })).handler(async ({ input, context }) => {
-    const [photo] = await db.select().from(photos).where(eq10(photos.id, input.id));
+    const [photo] = await db.select().from(photos).where(eq11(photos.id, input.id));
     if (!photo) throw new ORPCError8("NOT_FOUND");
     if (photo.reportId) await loadReport(photo.reportId, context.user.id, context.user.role);
     return { id: photo.id, url: await presignGet(photo.storageKey), caption: photo.caption };
   }),
   updateCaption: authed.input(z10.object({ id: z10.string(), caption: z10.string().max(300).nullable() })).handler(async ({ input, context }) => {
-    const [photo] = await db.select().from(photos).where(eq10(photos.id, input.id));
+    const [photo] = await db.select().from(photos).where(eq11(photos.id, input.id));
     if (!photo) throw new ORPCError8("NOT_FOUND");
     if (photo.reportId) {
       const report = await loadReport(photo.reportId, context.user.id, context.user.role);
       assertEditable(report);
     }
-    const [row] = await db.update(photos).set({ caption: input.caption }).where(eq10(photos.id, input.id)).returning();
+    const [row] = await db.update(photos).set({ caption: input.caption }).where(eq11(photos.id, input.id)).returning();
     return row;
   }),
   remove: authed.input(z10.object({ id: z10.string() })).handler(async ({ input, context }) => {
-    const [photo] = await db.select().from(photos).where(eq10(photos.id, input.id));
+    const [photo] = await db.select().from(photos).where(eq11(photos.id, input.id));
     if (!photo) throw new ORPCError8("NOT_FOUND");
     if (photo.reportId) {
       const report = await loadReport(photo.reportId, context.user.id, context.user.role);
       assertEditable(report);
     }
-    await db.delete(photos).where(eq10(photos.id, input.id));
+    await db.delete(photos).where(eq11(photos.id, input.id));
     await deleteObject(photo.storageKey);
     if (photo.thumbKey) await deleteObject(photo.thumbKey);
     return { ok: true };
@@ -4387,7 +4361,7 @@ var photos2 = {
 var ping = base.handler(() => ({ message: `Pong! ${Date.now()}` }));
 
 // src/api/routes/search.ts
-import { and as and8, desc as desc6, eq as eq11, ilike as ilike2, or as or2 } from "drizzle-orm";
+import { and as and8, desc as desc6, eq as eq12, ilike as ilike2, or as or2 } from "drizzle-orm";
 import { z as z11 } from "zod";
 var search = {
   global: authed.input(z11.object({ q: z11.string().max(120), limit: z11.number().int().min(1).max(40).default(12) })).handler(async ({ input, context }) => {
@@ -4406,7 +4380,7 @@ var search = {
       archived: properties.archived
     }).from(properties).where(
       and8(
-        isAdmin ? void 0 : eq11(properties.userId, context.user.id),
+        isAdmin ? void 0 : eq12(properties.userId, context.user.id),
         or2(
           ilike2(properties.addressLine1, q),
           ilike2(properties.addressLine2, q),
@@ -4428,9 +4402,9 @@ var search = {
       propertyId: properties.id,
       addressLine1: properties.addressLine1,
       postcode: properties.postcode
-    }).from(reports).innerJoin(properties, eq11(properties.id, reports.propertyId)).where(
+    }).from(reports).innerJoin(properties, eq12(properties.id, reports.propertyId)).where(
       and8(
-        isAdmin ? void 0 : eq11(reports.userId, context.user.id),
+        isAdmin ? void 0 : eq12(reports.userId, context.user.id),
         or2(
           ilike2(reports.reference, q),
           ilike2(reports.id, q),
@@ -4447,7 +4421,7 @@ var search = {
 
 // src/api/routes/signatures.ts
 import { ORPCError as ORPCError9 } from "@orpc/server";
-import { eq as eq12 } from "drizzle-orm";
+import { eq as eq13 } from "drizzle-orm";
 import { z as z12 } from "zod";
 var SIGNER_ROLES = ["clerk", "tenant", "landlord", "agent"];
 function decodeSignature(dataUrl) {
@@ -4460,7 +4434,7 @@ function decodeSignature(dataUrl) {
 var signatures2 = {
   list: authed.input(z12.object({ reportId: z12.string() })).handler(async ({ input, context }) => {
     const report = await loadReport(input.reportId, context.user.id, context.user.role);
-    const rows = await db.select().from(signatures).where(eq12(signatures.reportId, report.id));
+    const rows = await db.select().from(signatures).where(eq13(signatures.reportId, report.id));
     return Promise.all(rows.map(async (s) => ({ ...s, url: await presignGet(s.storageKey) })));
   }),
   /**
@@ -4486,10 +4460,10 @@ var signatures2 = {
     const id2 = newId("sig");
     const key = `properties/${report.propertyId}/reports/${report.id}/signatures/${id2}.png`;
     await putObject(key, bytes, "image/png");
-    const existing = await db.select().from(signatures).where(eq12(signatures.reportId, report.id));
+    const existing = await db.select().from(signatures).where(eq13(signatures.reportId, report.id));
     const previous = existing.find((s) => s.signerRole === input.signerRole);
     if (previous) {
-      await db.delete(signatures).where(eq12(signatures.id, previous.id));
+      await db.delete(signatures).where(eq13(signatures.id, previous.id));
       await deleteObject(previous.storageKey);
     }
     await db.insert(signatures).values({
@@ -4509,16 +4483,16 @@ var signatures2 = {
       action: "signed",
       detail: `${input.signerRole}: ${input.signerName}`
     });
-    await db.update(reports).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq12(reports.id, report.id));
-    const [row] = await db.select().from(signatures).where(eq12(signatures.id, id2));
+    await db.update(reports).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq13(reports.id, report.id));
+    const [row] = await db.select().from(signatures).where(eq13(signatures.id, id2));
     return { ...row, url: await presignGet(row.storageKey) };
   }),
   remove: authed.input(z12.object({ id: z12.string() })).handler(async ({ input, context }) => {
-    const [row] = await db.select().from(signatures).where(eq12(signatures.id, input.id));
+    const [row] = await db.select().from(signatures).where(eq13(signatures.id, input.id));
     if (!row) throw new ORPCError9("NOT_FOUND");
     const report = await loadReport(row.reportId, context.user.id, context.user.role);
     assertEditable(report);
-    await db.delete(signatures).where(eq12(signatures.id, input.id));
+    await db.delete(signatures).where(eq13(signatures.id, input.id));
     await deleteObject(row.storageKey);
     return { ok: true };
   }),
@@ -4529,7 +4503,7 @@ var signatures2 = {
   finalise: authed.input(z12.object({ reportId: z12.string() })).handler(async ({ input, context }) => {
     const report = await loadReport(input.reportId, context.user.id, context.user.role);
     if (report.lockedAt) return report;
-    const signed = await db.select().from(signatures).where(eq12(signatures.reportId, report.id));
+    const signed = await db.select().from(signatures).where(eq13(signatures.reportId, report.id));
     if (!signed.length) {
       throw new ORPCError9("BAD_REQUEST", { message: "At least one signature is required before locking." });
     }
@@ -4538,7 +4512,7 @@ var signatures2 = {
       lockedAt: /* @__PURE__ */ new Date(),
       completedAt: report.completedAt ?? /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq12(reports.id, report.id)).returning();
+    }).where(eq13(reports.id, report.id)).returning();
     await db.insert(auditLog).values({
       id: newId("aud"),
       userId: context.user.id,
@@ -4640,7 +4614,7 @@ var TENANT_DECLARATION = "I confirm that I have reviewed this inspection report.
 // src/api/lib/tenant-store.ts
 import { createHash as createHash3, randomBytes as randomBytes2 } from "node:crypto";
 import { ORPCError as ORPCError10 } from "@orpc/server";
-import { and as and9, eq as eq13, isNull as isNull2, lt as lt3, sql as sql8 } from "drizzle-orm";
+import { and as and9, eq as eq14, isNull as isNull2, lt as lt3, sql as sql8 } from "drizzle-orm";
 import { HeadObjectCommand, PutObjectCommand as PutObjectCommand2 } from "@aws-sdk/client-s3";
 import { getSignedUrl as getSignedUrl2 } from "@aws-sdk/s3-request-presigner";
 
@@ -4875,7 +4849,7 @@ async function createTenantReport(input, sourceReportId) {
 async function tenantShare(token, editable = false) {
   if (!tenantTokenSchema.safeParse(token).success)
     throw new ORPCError10("NOT_FOUND", { message: "This report link is not valid." });
-  const [row] = await db.select().from(tenantReports).where(eq13(tenantReports.tokenHash, digest3(token)));
+  const [row] = await db.select().from(tenantReports).where(eq14(tenantReports.tokenHash, digest3(token)));
   if (!row) throw new ORPCError10("NOT_FOUND", { message: "This report link is not valid." });
   if (editable && row.submittedAt)
     throw new ORPCError10("CONFLICT", {
@@ -4886,7 +4860,7 @@ async function tenantShare(token, editable = false) {
 async function getTenantReport(token) {
   const share = await tenantShare(token);
   const response = JSON.parse(share.response);
-  const assets = await db.select().from(tenantAssets).where(and9(eq13(tenantAssets.shareId, share.id), eq13(tenantAssets.ready, true)));
+  const assets = await db.select().from(tenantAssets).where(and9(eq14(tenantAssets.shareId, share.id), eq14(tenantAssets.ready, true)));
   const assetById = new Map(assets.map((a) => [a.id, a]));
   const photoList = await Promise.all(
     response.photos.map(async (p2) => ({
@@ -4924,7 +4898,7 @@ async function saveTenantResponse(token, revision, response, submit = false) {
   }
   if (new Set(parsed.photos.map((p2) => p2.assetId)).size !== parsed.photos.length)
     throw new ORPCError10("BAD_REQUEST", { message: "Duplicate photograph." });
-  const assets = await db.select().from(tenantAssets).where(and9(eq13(tenantAssets.shareId, share.id), eq13(tenantAssets.ready, true)));
+  const assets = await db.select().from(tenantAssets).where(and9(eq14(tenantAssets.shareId, share.id), eq14(tenantAssets.ready, true)));
   for (const p2 of parsed.photos) {
     if (!assets.some((a) => a.id === p2.assetId && a.kind === "photo"))
       throw new ORPCError10("BAD_REQUEST", {
@@ -4943,8 +4917,8 @@ async function saveTenantResponse(token, revision, response, submit = false) {
     ...submit ? { submittedAt: /* @__PURE__ */ new Date(), declaration: TENANT_DECLARATION } : {}
   }).where(
     and9(
-      eq13(tenantReports.id, share.id),
-      eq13(tenantReports.revision, revision),
+      eq14(tenantReports.id, share.id),
+      eq14(tenantReports.revision, revision),
       isNull2(tenantReports.submittedAt)
     )
   ).returning();
@@ -4987,7 +4961,7 @@ async function reserveTenantUpload(token, kind, contentType, bytes) {
 }
 async function verifyTenantUpload(token, assetId) {
   const share = await tenantShare(token, true);
-  const [asset] = await db.select().from(tenantAssets).where(and9(eq13(tenantAssets.id, assetId), eq13(tenantAssets.shareId, share.id)));
+  const [asset] = await db.select().from(tenantAssets).where(and9(eq14(tenantAssets.id, assetId), eq14(tenantAssets.shareId, share.id)));
   if (!asset) throw new ORPCError10("NOT_FOUND", { message: "Upload not found." });
   if (asset.ready) return { assetId, url: await presignGet(asset.storageKey, 900) };
   if (Date.now() - asset.createdAt.getTime() > 10 * 6e4)
@@ -5018,7 +4992,7 @@ async function verifyTenantUpload(token, assetId) {
   }
   const key = `tenant-reports/${share.id}/verified/${asset.id}.${asset.kind === "signature" ? "png" : "jpg"}`;
   await putObject(key, cleaned, asset.kind === "signature" ? "image/png" : "image/jpeg");
-  await db.update(tenantAssets).set({ ready: true, storageKey: key }).where(eq13(tenantAssets.id, asset.id));
+  await db.update(tenantAssets).set({ ready: true, storageKey: key }).where(eq14(tenantAssets.id, asset.id));
   await deleteObject(asset.storageKey);
   return { assetId, url: await presignGet(key, 900) };
 }
@@ -5185,7 +5159,7 @@ var tenantReport = {
 // src/api/index.ts
 var router = {
   ping,
-  account: account2,
+  account,
   dashboard,
   bookings,
   myBookings,
@@ -5203,7 +5177,6 @@ var app = createApp(router);
 app.post("/api/tenant-report", ingestTenantReport);
 app.get("/api/tenant-report/:token", streamTenantReport);
 app.get("/api/photos/:id/open", photoOpen);
-app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 var api_default = app;
 
 // vercel-entry.ts

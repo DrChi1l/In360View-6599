@@ -16,12 +16,17 @@ export function AuthPanel({ mode, onModeChange }: { mode: AuthMode; onModeChange
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
 
-  useEffect(() => setError(null), [mode]);
+  useEffect(() => {
+    setError(null);
+    setInfo(null);
+  }, [mode]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setBusy(true);
     try {
       const result =
@@ -30,20 +35,20 @@ export function AuthPanel({ mode, onModeChange }: { mode: AuthMode; onModeChange
               email: email.trim(),
               password,
               name: name.trim() || email.trim(),
-              // @ts-expect-error additional fields are configured on the server
               role,
               companyName: companyName.trim() || undefined,
             })
           : await authClient.signIn.email({ email: email.trim(), password });
       if (result.error) {
         const status = result.error.status ?? 0;
-        // 5xx / empty body means the server failed (for example it could not reach
-        // the database), not that the password was wrong.
+        // 5xx / empty body means the server failed, not that the password was wrong.
         setError(
-          status >= 500 || (!result.error.message && status === 0)
+          status >= 500 && status !== 503
             ? "We could not reach the service just now. Please try again in a moment."
-            : (result.error.message ?? "Those details were not accepted."),
+            : (result.error.message || "Those details were not accepted."),
         );
+      } else if ("needsEmailConfirmation" in result && result.needsEmailConfirmation) {
+        setInfo("Account created. Check your email to confirm your address, then sign in.");
       }
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "We could not reach the service just now. Please try again.");
@@ -115,6 +120,7 @@ export function AuthPanel({ mode, onModeChange }: { mode: AuthMode; onModeChange
           />
         </Field>
         <ErrorNote error={error} />
+        {info && <p className="rounded-[10px] bg-brand-50 px-3 py-2 text-[13px] text-brand-800">{info}</p>}
         <Button type="submit" className="mt-2 h-11 rounded-[10px] text-[15px]" disabled={busy}>
           {busy && <Spinner />}
           {mode === "signin" ? "Sign in" : "Create account"}

@@ -13,7 +13,7 @@ import { putObject } from "./src/api/lib/s3";
 const EMAIL = "demo@in360view.test";
 
 
-const users = await db.select().from((await import("./src/api/database/auth-schema")).user);
+const users = await db.select().from((await import("./src/api/database/auth-schema")).profiles);
 const owner = users.find((u) => u.email === EMAIL) ?? users[0];
 if (!owner) throw new Error("No user exists yet — sign up in the app first.");
 console.log("owner:", owner.email);

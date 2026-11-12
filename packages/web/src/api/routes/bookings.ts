@@ -17,7 +17,7 @@ import {
   spanishAddressSchema,
   spanishAddressToProperty,
 } from "../lib/spain-address";
-import { authed } from "../middleware/auth";
+import { adminOnly } from "../middleware/auth";
 import { type BookingRow, sendConfirmedEmail, sendDeclinedEmail, sendReceivedEmail, siteOrigin } from "../lib/booking-customer";
 
 export const BOOKING_STATUSES = ["new", "confirmed", "declined", "done"] as const;
@@ -176,7 +176,7 @@ export const bookings = {
     return { id: row.id, reference: row.reference, emailed: ack.sent };
   }),
 
-  list: authed
+  list: adminOnly
     .input(
       z
         .object({
@@ -209,7 +209,7 @@ export const bookings = {
       return { bookings: rows, counts: byStatus };
     }),
 
-  get: authed.input(z.object({ id: z.string() })).handler(async ({ input }) => {
+  get: adminOnly.input(z.object({ id: z.string() })).handler(async ({ input }) => {
     const [row] = await db
       .select()
       .from(schema.bookingRequests)
@@ -218,7 +218,7 @@ export const bookings = {
     return row;
   }),
 
-  update: authed
+  update: adminOnly
     .input(
       z.object({
         id: z.string(),
@@ -247,7 +247,7 @@ export const bookings = {
     }),
 
   /** Re-sends the "you're booked in" email, e.g. after the customer lost it. */
-  resendConfirmation: authed.input(z.object({ id: z.string() })).handler(async ({ input, context }) => {
+  resendConfirmation: adminOnly.input(z.object({ id: z.string() })).handler(async ({ input, context }) => {
     const row = await findBooking(input.id);
     if (row.status !== "confirmed") {
       throw new ORPCError("BAD_REQUEST", { message: "Only confirmed bookings have a confirmation to send." });
@@ -255,7 +255,7 @@ export const bookings = {
     return confirmAndEmail(row, context.headers);
   }),
 
-  remove: authed.input(z.object({ id: z.string() })).handler(async ({ input }) => {
+  remove: adminOnly.input(z.object({ id: z.string() })).handler(async ({ input }) => {
     await db.delete(schema.bookingRequests).where(eq(schema.bookingRequests.id, input.id));
     return { ok: true };
   }),
@@ -265,7 +265,7 @@ export const bookings = {
    * inspection from it. Address is stored as one line by the public form, so the
    * trailing comma-separated parts become the town and postcode where possible.
    */
-  convert: authed.input(z.object({ id: z.string(), ...slotInput })).handler(async ({ input, context }) => {
+  convert: adminOnly.input(z.object({ id: z.string(), ...slotInput })).handler(async ({ input, context }) => {
     const found = await findBooking(input.id);
     // Booking it in comes first, so the requester hears even if the property already exists.
     const [booking] = await db

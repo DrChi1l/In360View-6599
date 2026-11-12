@@ -67,6 +67,9 @@ export const PROPERTY_TYPES = [
 export const FURNISHING_TYPES = ["Unfurnished", "Part furnished", "Fully furnished"] as const;
 
 export const USER_ROLES = ["clerk", "agency", "landlord", "admin"] as const;
+
+/** Roles a person may pick for themselves. Admin is granted only by the operator (ADMIN_EMAILS or SQL). */
+export const SELF_ASSIGNABLE_ROLES = ["clerk", "agency", "landlord"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {

@@ -1,6 +1,5 @@
 import type { RouterClient } from "@orpc/server";
 import { createApp } from "./__core/app";
-import { auth } from "./auth";
 import { account } from "./routes/account";
 import { addresses } from "./routes/addresses";
 import { bookings } from "./routes/bookings";
@@ -50,7 +49,5 @@ app.get("/api/tenant-report/:token", streamTenantReport);
 // presigned storage URL so the link never expires.
 app.get("/api/photos/:id/open", photoOpen);
 
-// Better Auth owns every /api/auth/* route (email+password, Google, Apple, Expo).
-app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 export default app;

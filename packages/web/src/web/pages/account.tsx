@@ -86,7 +86,8 @@ export default function Account() {
                 name: name.trim() || undefined,
                 companyName: companyName.trim() ? companyName.trim() : null,
                 phone: phone.trim() ? phone.trim() : null,
-                role,
+                // Admin is granted by the operator, never chosen here; an admin's role is left as it is.
+                role: role === "admin" ? undefined : role,
               });
               setSaved(true);
             }}

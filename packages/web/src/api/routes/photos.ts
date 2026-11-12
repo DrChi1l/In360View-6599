@@ -26,10 +26,11 @@ export const photos = {
     .handler(async ({ input, context }) => {
       const report = await loadReport(input.reportId, context.user.id, context.user.role);
       assertEditable(report);
-      const ext = input.contentType === "image/png" ? "png" : "jpg";
+      const ext = input.contentType === "image/png" ? "png" : input.contentType === "image/webp" ? "webp" : "jpg";
       return Promise.all(
         Array.from({ length: input.count }, async () => {
-          const base = `properties/${report.propertyId}/reports/${report.id}/${newId("ph")}`;
+          // The owner's folder first: the Flutter app can only reach its own folder in Storage.
+          const base = `${report.userId}/properties/${report.propertyId}/reports/${report.id}/${newId("ph")}`;
           const storageKey = `${base}.${ext}`;
           const thumbKey = `${base}_thumb.${ext}`;
           return {

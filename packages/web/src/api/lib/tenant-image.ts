@@ -36,6 +36,27 @@ async function prepareWebp() {
   throw new Error("WebP decoder asset unavailable");
 }
 
+/** True when the bytes start like a WebP file ("RIFF" .... "WEBP"). */
+export function isWebp(bytes: Uint8Array) {
+  return (
+    bytes.length > 12 &&
+    String.fromCharCode(...bytes.subarray(0, 4)) === "RIFF" &&
+    String.fromCharCode(...bytes.subarray(8, 12)) === "WEBP"
+  );
+}
+
+/** Decodes a WebP image and re-encodes it as JPEG: pdf-lib can only embed JPEG and PNG. */
+export async function webpToJpeg(bytes: Uint8Array): Promise<Uint8Array> {
+  webpReady ??= prepareWebp().catch((error) => {
+    webpReady = undefined;
+    throw error;
+  });
+  await webpReady;
+  const pixels = await decodeWebp(Uint8Array.from(bytes).buffer);
+  dimensions(pixels.width, pixels.height);
+  return jpeg.encode({ width: pixels.width, height: pixels.height, data: pixels.data }, 85).data;
+}
+
 function webpDimensions(bytes: Buffer) {
   for (let offset = 12; offset + 8 <= bytes.length; ) {
     const type = bytes.toString("ascii", offset, offset + 4);

@@ -183,9 +183,11 @@ export const properties = {
   frontPhotoPresign: authed
     .input(z.object({ propertyId: z.string(), contentType: z.string().max(120).default("image/jpeg") }))
     .handler(async ({ input, context }) => {
-      await assertPropertyAccess(input.propertyId, context.user.id, context.user.role);
-      const ext = input.contentType === "image/png" ? "png" : "jpg";
-      const base = `properties/${input.propertyId}/front/${newId("fr")}`;
+      const property = await assertPropertyAccess(input.propertyId, context.user.id, context.user.role);
+      const ext = input.contentType === "image/png" ? "png" : input.contentType === "image/webp" ? "webp" : "jpg";
+      // Files live in the owner's folder so the Flutter app (which can only reach its own
+      // folder in Storage) sees them too.
+      const base = `${property.userId}/properties/${input.propertyId}/front/${newId("fr")}`;
       const storageKey = `${base}.${ext}`;
       const thumbKey = `${base}_thumb.${ext}`;
       return {

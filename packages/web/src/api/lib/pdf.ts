@@ -36,6 +36,7 @@ import {
 } from "./legal";
 import { photoOpenUrl } from "./links";
 import { getObjectBytes } from "./s3";
+import { isWebp, webpToJpeg } from "./tenant-image";
 
 /**
  * Inspection report PDF.
@@ -327,6 +328,15 @@ class Doc {
 }
 
 async function embedPhoto(doc: PDFDocument, bytes: Uint8Array, contentType?: string) {
+  // The Flutter app stores photos and signatures as WebP, which pdf-lib cannot embed.
+  if (isWebp(bytes)) {
+    try {
+      bytes = await webpToJpeg(bytes);
+      contentType = "image/jpeg";
+    } catch {
+      return null;
+    }
+  }
   try {
     if (contentType?.includes("png")) return await doc.embedPng(bytes);
     return await doc.embedJpg(bytes);

@@ -2,9 +2,11 @@ import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } fro
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const s3 = new S3Client({
-  region: "auto",
+  // Supabase Storage: S3_ENDPOINT=https://<ref>.storage.supabase.co/storage/v1/s3, S3_REGION=<project region>,
+  // S3_FORCE_PATH_STYLE=true. Other providers (Tigris, R2) keep the defaults.
+  region: process.env.S3_REGION ?? "auto",
   endpoint: process.env.S3_ENDPOINT,
-  forcePathStyle: false,
+  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID!,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,

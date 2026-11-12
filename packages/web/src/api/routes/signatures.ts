@@ -53,7 +53,7 @@ export const signatures = {
 
       const bytes = decodeSignature(input.imageBase64);
       const id = newId("sig");
-      const key = `properties/${report.propertyId}/reports/${report.id}/signatures/${id}.png`;
+      const key = `${report.userId}/properties/${report.propertyId}/reports/${report.id}/signatures/${id}.png`;
       await putObject(key, bytes, "image/png");
 
       // One signature per role — a re-sign replaces the previous one.

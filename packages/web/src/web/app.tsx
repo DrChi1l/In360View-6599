@@ -1,6 +1,7 @@
 import { Redirect, Route, Switch } from "wouter";
 import { Provider } from "./components/provider";
 import { GuestOnly, Protected } from "./components/protected";
+import { authClient } from "./lib/auth";
 import { AgentFeedback } from "@runablehq/website-runtime";
 
 import Landing from "./pages/landing";
@@ -22,6 +23,19 @@ import NewReport from "./pages/new-report";
 import TenantReport from "./pages/tenant-report";
 import MyBookings from "./pages/my-bookings";
 
+function HomeRoute() {
+  const session = authClient.useSession();
+  if (session.isPending) return <Landing />;
+  if (session.data?.user) {
+    return (
+      <Protected>
+        <Dashboard />
+      </Protected>
+    );
+  }
+  return <Landing />;
+}
+
 function App() {
   return (
     <Provider>
@@ -36,7 +50,7 @@ function App() {
         </Route>
         {/* Spanish entry links (the language itself is picked up in lib/i18n). */}
         <Route path="/es">
-          <Redirect to="/sign-in" replace />
+          <Redirect to="/" replace />
         </Route>
         <Route path="/es/prices">
           <Redirect to="/prices" replace />
@@ -51,9 +65,7 @@ function App() {
         </Route>
 
         <Route path="/">
-          <Protected>
-            <Dashboard />
-          </Protected>
+          <HomeRoute />
         </Route>
 
         <Route path="/properties">

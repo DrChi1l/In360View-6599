@@ -6,9 +6,6 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// vercel-entry.ts
-import { handle } from "hono/vercel";
-
 // src/api/__core/app.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -5204,7 +5201,9 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 var api_default = app;
 
 // vercel-entry.ts
-var vercel_entry_default = handle(api_default);
+var vercel_entry_default = {
+  fetch: (request) => api_default.fetch(request)
+};
 export {
   vercel_entry_default as default
 };

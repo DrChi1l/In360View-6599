@@ -35,9 +35,18 @@ export function AuthPanel({ mode, onModeChange }: { mode: AuthMode; onModeChange
               companyName: companyName.trim() || undefined,
             })
           : await authClient.signIn.email({ email: email.trim(), password });
-      if (result.error) setError(result.error.message ?? "Those details were not accepted.");
+      if (result.error) {
+        const status = result.error.status ?? 0;
+        // 5xx / empty body means the server failed (for example it could not reach
+        // the database), not that the password was wrong.
+        setError(
+          status >= 500 || (!result.error.message && status === 0)
+            ? "We could not reach the service just now. Please try again in a moment."
+            : (result.error.message ?? "Those details were not accepted."),
+        );
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Those details were not accepted.");
+      setError(e instanceof Error && e.message ? e.message : "We could not reach the service just now. Please try again.");
     } finally {
       setBusy(false);
     }

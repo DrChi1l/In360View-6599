@@ -6,7 +6,9 @@
     ".": "./src/api/index.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/bundle-api.mjs",
+    "build:api": "node scripts/bundle-api.mjs",
+    "build:vercel": "vite build && node scripts/bundle-api.mjs",
     "dev": "vite",
     "start": "bun src/__server.ts",
     "typecheck": "tsc --noEmit",
@@ -57,6 +59,7 @@
     "@types/react-dom": "19.1.11",
     "@vitejs/plugin-react": "5.1.4",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2",
     "jsdom": "^29.1.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",

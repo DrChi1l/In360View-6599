@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../database";
 import * as schema from "../database/schema";
@@ -33,14 +33,14 @@ export const search = {
           and(
             isAdmin ? undefined : eq(schema.properties.userId, context.user.id),
             or(
-              like(schema.properties.addressLine1, q),
-              like(schema.properties.addressLine2, q),
-              like(schema.properties.city, q),
-              like(schema.properties.postcode, q),
-              like(schema.properties.reference, q),
-              like(schema.properties.tenantName, q),
-              like(schema.properties.landlordName, q),
-              like(schema.properties.id, q),
+              ilike(schema.properties.addressLine1, q),
+              ilike(schema.properties.addressLine2, q),
+              ilike(schema.properties.city, q),
+              ilike(schema.properties.postcode, q),
+              ilike(schema.properties.reference, q),
+              ilike(schema.properties.tenantName, q),
+              ilike(schema.properties.landlordName, q),
+              ilike(schema.properties.id, q),
             ),
           ),
         )
@@ -64,12 +64,12 @@ export const search = {
           and(
             isAdmin ? undefined : eq(schema.reports.userId, context.user.id),
             or(
-              like(schema.reports.reference, q),
-              like(schema.reports.id, q),
-              like(schema.properties.addressLine1, q),
-              like(schema.properties.postcode, q),
-              like(schema.properties.tenantName, q),
-              like(schema.properties.landlordName, q),
+              ilike(schema.reports.reference, q),
+              ilike(schema.reports.id, q),
+              ilike(schema.properties.addressLine1, q),
+              ilike(schema.properties.postcode, q),
+              ilike(schema.properties.tenantName, q),
+              ilike(schema.properties.landlordName, q),
             ),
           ),
         )

@@ -121,7 +121,7 @@ export const reports = {
           property: schema.properties,
           photoCount: sql<number>`(select count(*) from photos where photos.report_id = reports.id)`,
           roomCount: sql<number>`(select count(*) from rooms where rooms.report_id = reports.id)`,
-          completedRooms: sql<number>`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = 1)`,
+          completedRooms: sql<number>`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = true)`,
           signatureCount: sql<number>`(select count(*) from signatures where signatures.report_id = reports.id)`,
         })
         .from(schema.reports)

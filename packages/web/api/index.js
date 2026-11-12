@@ -2110,7 +2110,7 @@ var dashboard = {
     const [[propertyCounts], [reportCounts]] = await Promise.all([
       db.select({
         total: sql2`count(*)`,
-        active: sql2`sum(case when ${properties.archived} = 0 then 1 else 0 end)`
+        active: sql2`sum(case when ${properties.archived} = false then 1 else 0 end)`
       }).from(properties).where(mineProperties),
       db.select({
         total: sql2`count(*)`,
@@ -2130,7 +2130,7 @@ var dashboard = {
       addressLine1: properties.addressLine1,
       postcode: properties.postcode,
       roomCount: sql2`(select count(*) from rooms where rooms.report_id = reports.id)`,
-      completedRooms: sql2`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = 1)`,
+      completedRooms: sql2`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = true)`,
       photoCount: sql2`(select count(*) from photos where photos.report_id = reports.id)`
     }).from(reports).innerJoin(properties, eq4(properties.id, reports.propertyId)).where(mineReports).orderBy(desc3(reports.updatedAt)).limit(6);
     const upcoming = await db.select({
@@ -2169,7 +2169,13 @@ var dashboard = {
         signed: Number(reportCounts?.signed ?? 0)
       },
       photos: Number(photoTotal[0]?.total ?? 0),
-      recentReports,
+      // Postgres returns count(*) as text; the web app expects numbers.
+      recentReports: recentReports.map((r) => ({
+        ...r,
+        roomCount: Number(r.roomCount ?? 0),
+        completedRooms: Number(r.completedRooms ?? 0),
+        photoCount: Number(r.photoCount ?? 0)
+      })),
       upcoming
     };
   })
@@ -3292,7 +3298,7 @@ import { z as z6 } from "zod";
 
 // src/api/routes/properties.ts
 import { ORPCError as ORPCError3 } from "@orpc/server";
-import { and as and5, desc as desc4, eq as eq5, like, or, sql as sql3 } from "drizzle-orm";
+import { and as and5, desc as desc4, eq as eq5, ilike, or, sql as sql3 } from "drizzle-orm";
 import { z as z5 } from "zod";
 var propertyInput = z5.object({
   reference: z5.string().max(60).optional().nullable(),
@@ -3341,12 +3347,12 @@ var properties2 = {
       const q = `%${input.search.trim()}%`;
       where.push(
         or(
-          like(properties.addressLine1, q),
-          like(properties.postcode, q),
-          like(properties.city, q),
-          like(properties.reference, q),
-          like(properties.tenantName, q),
-          like(properties.landlordName, q)
+          ilike(properties.addressLine1, q),
+          ilike(properties.postcode, q),
+          ilike(properties.city, q),
+          ilike(properties.reference, q),
+          ilike(properties.tenantName, q),
+          ilike(properties.landlordName, q)
         )
       );
     }
@@ -3360,7 +3366,7 @@ var properties2 = {
         ...r.property,
         ...await frontPhotoUrls(r.property),
         reportCount: Number(r.reportCount ?? 0),
-        lastReportAt: r.lastReportAt ? new Date(Number(r.lastReportAt)) : null
+        lastReportAt: r.lastReportAt ? new Date(r.lastReportAt) : null
       }))
     );
   }),
@@ -3607,7 +3613,7 @@ var reports2 = {
       property: properties,
       photoCount: sql4`(select count(*) from photos where photos.report_id = reports.id)`,
       roomCount: sql4`(select count(*) from rooms where rooms.report_id = reports.id)`,
-      completedRooms: sql4`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = 1)`,
+      completedRooms: sql4`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = true)`,
       signatureCount: sql4`(select count(*) from signatures where signatures.report_id = reports.id)`
     }).from(reports).innerJoin(properties, eq6(properties.id, reports.propertyId)).where(where.length ? and6(...where) : void 0).orderBy(desc5(reports.updatedAt)).limit(input.limit);
     return rows.map((r) => ({
@@ -4381,7 +4387,7 @@ var photos2 = {
 var ping = base.handler(() => ({ message: `Pong! ${Date.now()}` }));
 
 // src/api/routes/search.ts
-import { and as and8, desc as desc6, eq as eq11, like as like2, or as or2 } from "drizzle-orm";
+import { and as and8, desc as desc6, eq as eq11, ilike as ilike2, or as or2 } from "drizzle-orm";
 import { z as z11 } from "zod";
 var search = {
   global: authed.input(z11.object({ q: z11.string().max(120), limit: z11.number().int().min(1).max(40).default(12) })).handler(async ({ input, context }) => {
@@ -4402,14 +4408,14 @@ var search = {
       and8(
         isAdmin ? void 0 : eq11(properties.userId, context.user.id),
         or2(
-          like2(properties.addressLine1, q),
-          like2(properties.addressLine2, q),
-          like2(properties.city, q),
-          like2(properties.postcode, q),
-          like2(properties.reference, q),
-          like2(properties.tenantName, q),
-          like2(properties.landlordName, q),
-          like2(properties.id, q)
+          ilike2(properties.addressLine1, q),
+          ilike2(properties.addressLine2, q),
+          ilike2(properties.city, q),
+          ilike2(properties.postcode, q),
+          ilike2(properties.reference, q),
+          ilike2(properties.tenantName, q),
+          ilike2(properties.landlordName, q),
+          ilike2(properties.id, q)
         )
       )
     ).orderBy(desc6(properties.updatedAt)).limit(input.limit);
@@ -4426,12 +4432,12 @@ var search = {
       and8(
         isAdmin ? void 0 : eq11(reports.userId, context.user.id),
         or2(
-          like2(reports.reference, q),
-          like2(reports.id, q),
-          like2(properties.addressLine1, q),
-          like2(properties.postcode, q),
-          like2(properties.tenantName, q),
-          like2(properties.landlordName, q)
+          ilike2(reports.reference, q),
+          ilike2(reports.id, q),
+          ilike2(properties.addressLine1, q),
+          ilike2(properties.postcode, q),
+          ilike2(properties.tenantName, q),
+          ilike2(properties.landlordName, q)
         )
       )
     ).orderBy(desc6(reports.inspectionDate)).limit(input.limit);

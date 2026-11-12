@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../database";
 import * as schema from "../database/schema";
@@ -71,12 +71,12 @@ export const properties = {
         const q = `%${input.search.trim()}%`;
         where.push(
           or(
-            like(schema.properties.addressLine1, q),
-            like(schema.properties.postcode, q),
-            like(schema.properties.city, q),
-            like(schema.properties.reference, q),
-            like(schema.properties.tenantName, q),
-            like(schema.properties.landlordName, q),
+            ilike(schema.properties.addressLine1, q),
+            ilike(schema.properties.postcode, q),
+            ilike(schema.properties.city, q),
+            ilike(schema.properties.reference, q),
+            ilike(schema.properties.tenantName, q),
+            ilike(schema.properties.landlordName, q),
           ),
         );
       }
@@ -84,7 +84,7 @@ export const properties = {
         .select({
           property: schema.properties,
           reportCount: sql<number>`(select count(*) from reports where reports.property_id = properties.id)`,
-          lastReportAt: sql<number | null>`(select max(reports.inspection_date) from reports where reports.property_id = properties.id)`,
+          lastReportAt: sql<Date | string | null>`(select max(reports.inspection_date) from reports where reports.property_id = properties.id)`,
         })
         .from(schema.properties)
         .where(and(...where.filter(Boolean)))
@@ -96,7 +96,7 @@ export const properties = {
           ...r.property,
           ...(await frontPhotoUrls(r.property)),
           reportCount: Number(r.reportCount ?? 0),
-          lastReportAt: r.lastReportAt ? new Date(Number(r.lastReportAt)) : null,
+          lastReportAt: r.lastReportAt ? new Date(r.lastReportAt) : null,
         })),
       );
     }),

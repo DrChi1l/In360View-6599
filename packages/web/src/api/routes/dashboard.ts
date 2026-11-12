@@ -14,7 +14,7 @@ export const dashboard = {
       db
         .select({
           total: sql<number>`count(*)`,
-          active: sql<number>`sum(case when ${schema.properties.archived} = 0 then 1 else 0 end)`,
+          active: sql<number>`sum(case when ${schema.properties.archived} = false then 1 else 0 end)`,
         })
         .from(schema.properties)
         .where(mineProperties),
@@ -41,7 +41,7 @@ export const dashboard = {
         addressLine1: schema.properties.addressLine1,
         postcode: schema.properties.postcode,
         roomCount: sql<number>`(select count(*) from rooms where rooms.report_id = reports.id)`,
-        completedRooms: sql<number>`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = 1)`,
+        completedRooms: sql<number>`(select count(*) from rooms where rooms.report_id = reports.id and rooms.completed = true)`,
         photoCount: sql<number>`(select count(*) from photos where photos.report_id = reports.id)`,
       })
       .from(schema.reports)
@@ -99,7 +99,13 @@ export const dashboard = {
         signed: Number(reportCounts?.signed ?? 0),
       },
       photos: Number(photoTotal[0]?.total ?? 0),
-      recentReports,
+      // Postgres returns count(*) as text; the web app expects numbers.
+      recentReports: recentReports.map((r) => ({
+        ...r,
+        roomCount: Number(r.roomCount ?? 0),
+        completedRooms: Number(r.completedRooms ?? 0),
+        photoCount: Number(r.photoCount ?? 0),
+      })),
       upcoming,
     };
   }),

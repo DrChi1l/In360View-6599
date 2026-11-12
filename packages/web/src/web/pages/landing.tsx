@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
 import {
   ArrowRight,
   BadgeCheck,
@@ -20,6 +21,7 @@ import { Logo } from "../components/logo";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/field";
 import { BookingDialog, useBookingDialog } from "../components/booking-dialog";
+import { AuthDialog } from "../components/auth-dialog";
 import { LanguageSwitch } from "../components/language-switch";
 import { useCopy, useDocumentTitle } from "../lib/i18n";
 
@@ -31,7 +33,7 @@ type Item = { title: string; body: string };
 const COPY = {
   en: {
     docTitle: "In360View — Property inventories, inspections & reports",
-    nav: { services: "What we do", why: "Why us", prices: "Price list", pricesPdf: "Price list PDF", book: "Book", mine: "My bookings" },
+    nav: { services: "What we do", why: "Why us", prices: "Price list", pricesPdf: "Price list PDF", book: "Book", mine: "My bookings", signIn: "Sign in" },
     badge: "Inventories · Inspections · Reports",
     heroA: "Professional property inventories",
     heroB: "you can rely on",
@@ -107,7 +109,7 @@ const COPY = {
   },
   es: {
     docTitle: "In360View — Inventarios, inspecciones e informes de inmuebles",
-    nav: { services: "Servicios", why: "Por qué elegirnos", prices: "Precios", pricesPdf: "Precios en PDF", book: "Reservar", mine: "Mis reservas" },
+    nav: { services: "Servicios", why: "Por qué elegirnos", prices: "Precios", pricesPdf: "Precios en PDF", book: "Reservar", mine: "Mis reservas", signIn: "Iniciar sesión" },
     badge: "Inventarios · Inspecciones · Informes",
     heroA: "Inventarios profesionales de inmuebles",
     heroB: "en los que puede confiar",
@@ -191,9 +193,24 @@ export default function Landing() {
   const booking = useBookingDialog();
   const c = useCopy(COPY);
   useDocumentTitle(c.docTitle);
+  const [location, setLocation] = useLocation();
+  const [authOpen, setAuthOpen] = useState(location === "/sign-in");
+
+  useEffect(() => {
+    if (location === "/sign-in") setAuthOpen(true);
+  }, [location]);
+
+  function closeAuth() {
+    setAuthOpen(false);
+    if (location === "/sign-in") {
+      setLocation("/", { replace: true });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <BookingDialog open={booking.open} onClose={booking.hide} />
+      <AuthDialog open={authOpen} onClose={closeAuth} />
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <button type="button" onClick={() => scrollTo("top")} className="shrink-0 text-left">
@@ -216,6 +233,13 @@ export default function Landing() {
               <button type="button" className="hover:text-brand-800" onClick={booking.show}>
                 {c.nav.book}
               </button>
+              <button
+                type="button"
+                className="rounded-lg bg-brand-800 px-3.5 py-1.5 font-semibold text-white shadow-sm transition-colors hover:bg-brand-900"
+                onClick={() => setAuthOpen(true)}
+              >
+                {c.nav.signIn}
+              </button>
             </nav>
             <LanguageSwitch />
           </div>
@@ -227,6 +251,9 @@ export default function Landing() {
           </a>
           <Link href="/my-bookings" className="inline-flex min-h-11 items-center">{c.nav.mine}</Link>
           <button type="button" className="min-h-11" onClick={booking.show}>{c.nav.book}</button>
+          <button type="button" className="min-h-11 font-bold text-brand-900 underline" onClick={() => setAuthOpen(true)}>
+            {c.nav.signIn}
+          </button>
         </nav>
       </header>
 
@@ -388,6 +415,11 @@ export default function Landing() {
                 <Link href="/terms" className="hover:text-white">
                   {c.terms}
                 </Link>
+              </li>
+              <li>
+                <button type="button" className="hover:text-white" onClick={() => setAuthOpen(true)}>
+                  {c.nav.signIn}
+                </button>
               </li>
             </ul>
           </div>

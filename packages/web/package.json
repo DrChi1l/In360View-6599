@@ -6,9 +6,9 @@
     ".": "./src/api/index.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit && vite build && node scripts/bundle-api.mjs",
-    "build:api": "node scripts/bundle-api.mjs",
-    "build:vercel": "vite build && node scripts/bundle-api.mjs",
+    "build": "tsc --noEmit && vite build && node build-tools/bundle-api.mjs",
+    "build:api": "node build-tools/bundle-api.mjs",
+    "build:vercel": "vite build && node build-tools/bundle-api.mjs",
     "dev": "vite",
     "start": "bun src/__server.ts",
     "typecheck": "tsc --noEmit",

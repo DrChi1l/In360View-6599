@@ -8,7 +8,7 @@
   "packages/mobile/lib/__web-safe-area.ts": "f53718e929c3739df1876de84b1e926fc2a98aa28b0074aa473ac76884f6b8f0",
   "packages/web/src/__server.ts": "aeb8b19c1096c1ea3b22e8e21c4084706196b8ae55265160fe4aa3c47853098e",
   "packages/web/src/api/__core/app.ts": "f1015a86fc58ef1272105ca458f849f9765deca24b1217837ea00a8791c5bef8",
-  "packages/web/src/api/database/__client.ts": "ccb21d4ec50c4a255dad39322c20dc7f7e22df0b65a58be6b35e5c1a8caec1e1",
+  "packages/web/src/api/database/__client.ts": "614dfd166adff1108a567d3c55683b397bbe5b0c47ecaabbe9888e5e90ac4004",
   "packages/web/src/web/__main.tsx": "e0332316fc0300a4d4ec55defb8de7aeea19866e1de43815c1be5fcb67a9c293",
   "packages/web/src/web/__vite-env.d.ts": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
   "packages/web/src/web/types/__analytics.d.ts": "930e9287188df1247ee34d6cac333d586df7f1dad45c5e408c80c663fb38a701",

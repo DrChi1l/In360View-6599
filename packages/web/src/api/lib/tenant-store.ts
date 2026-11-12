@@ -200,12 +200,12 @@ export async function reserveTenantUpload(
   const storageKey = `tenant-reports/${share.id}/pending/${id}`;
   // Reserve atomically so concurrent requests cannot bypass the lifetime cap or final lock.
   const result =
-    await db.run(sql`INSERT INTO tenant_assets (id, share_id, kind, content_type, storage_key, ready, created_at)
-    SELECT ${id}, ${share.id}, ${kind}, ${contentType}, ${storageKey}, 0, ${Date.now()}
+    await db.execute(sql`INSERT INTO tenant_assets (id, share_id, kind, content_type, storage_key, ready, created_at)
+    SELECT ${id}, ${share.id}, ${kind}, ${contentType}, ${storageKey}, false, ${new Date()}
     WHERE EXISTS (SELECT 1 FROM tenant_reports WHERE id = ${share.id} AND submitted_at IS NULL)
       AND (SELECT count(*) FROM tenant_assets WHERE share_id = ${share.id}) < 40
     RETURNING id`);
-  if (!result.rows.length)
+  if (!result.length)
     throw new ORPCError("CONFLICT", {
       message: "The response is locked or its upload limit has been reached.",
     });

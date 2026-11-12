@@ -16,11 +16,12 @@ function dimensions(width: number, height: number) {
 async function prepareWebp() {
   // The decoder is a portable WASM asset, copied by Vite into dist/wasm.
   // No platform-specific .node binary or node_modules directory is needed.
+  const cwd = "cwd" in process && typeof (process as { cwd?: () => string }).cwd === "function" ? (process as { cwd: () => string }).cwd() : "";
   const paths = [
     resolve(import.meta.dirname, "../dist/wasm/webp-decoder.wasm"),
-    resolve(process.cwd(), "dist/wasm/webp-decoder.wasm"),
-    resolve(process.cwd(), "public/wasm/webp-decoder.wasm"),
-    resolve(process.cwd(), "packages/web/public/wasm/webp-decoder.wasm"),
+    resolve(cwd, "dist/wasm/webp-decoder.wasm"),
+    resolve(cwd, "public/wasm/webp-decoder.wasm"),
+    resolve(cwd, "packages/web/public/wasm/webp-decoder.wasm"),
   ];
   for (const path of paths) {
     let bytes: Buffer;

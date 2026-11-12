@@ -16,7 +16,8 @@ async function loadImage(file: string): Promise<Uint8Array | null> {
     `../public/images/${file}`,
     `../dist/images/${file}`,
   ];
-  const roots = [process.cwd(), path.resolve(import.meta.dirname, "../../..")];
+  const cwd = "cwd" in process && typeof (process as { cwd?: () => string }).cwd === "function" ? (process as { cwd: () => string }).cwd() : "";
+  const roots = [cwd, path.resolve(import.meta.dirname, "../../..")].filter(Boolean);
   for (const root of roots) {
     for (const candidate of candidates) {
       try {

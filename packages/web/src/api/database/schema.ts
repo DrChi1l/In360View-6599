@@ -1,5 +1,4 @@
-import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { boolean, index, integer, jsonb, pgTable, real, text, timestamp } from "drizzle-orm/pg-core";
 import type { SpanishAddress } from "../lib/spain-address";
 
 export * from "./auth-schema";
@@ -7,7 +6,7 @@ export * from "./auth-schema";
 const now = () => new Date();
 
 /** Properties managed by a clerk / agency / landlord account. */
-export const properties = sqliteTable(
+export const properties = pgTable(
   "properties",
   {
     id: text("id").primaryKey(),
@@ -36,16 +35,16 @@ export const properties = sqliteTable(
     frontPhotoThumbKey: text("front_photo_thumb_key"),
     frontPhotoWidth: integer("front_photo_width"),
     frontPhotoHeight: integer("front_photo_height"),
-    frontPhotoUpdatedAt: integer("front_photo_updated_at", { mode: "timestamp_ms" }),
-    archived: integer("archived", { mode: "boolean" }).default(false).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    frontPhotoUpdatedAt: timestamp("front_photo_updated_at", { mode: "date", precision: 3 }),
+    archived: boolean("archived").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("properties_user_idx").on(t.userId), index("properties_postcode_idx").on(t.postcode)],
 );
 
 /** An inspection report: check-in, check-out or mid-term. */
-export const reports = sqliteTable(
+export const reports = pgTable(
   "reports",
   {
     id: text("id").primaryKey(),
@@ -58,10 +57,10 @@ export const reports = sqliteTable(
     reference: text("reference"),
     /** For a check-out: the check-in report it is compared against. */
     baseReportId: text("base_report_id"),
-    inspectionDate: integer("inspection_date", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    inspectionDate: timestamp("inspection_date", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
     clerkName: text("clerk_name"),
     clerkEmail: text("clerk_email"),
-    tenantPresent: integer("tenant_present", { mode: "boolean" }).default(false).notNull(),
+    tenantPresent: boolean("tenant_present").default(false).notNull(),
     weather: text("weather"),
     generalCondition: text("general_condition"),
     generalCleanliness: text("general_cleanliness"),
@@ -69,11 +68,11 @@ export const reports = sqliteTable(
     tenantObservations: text("tenant_observations"),
     summaryNotes: text("summary_notes"),
     pdfKey: text("pdf_key"),
-    pdfGeneratedAt: integer("pdf_generated_at", { mode: "timestamp_ms" }),
-    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
-    lockedAt: integer("locked_at", { mode: "timestamp_ms" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    pdfGeneratedAt: timestamp("pdf_generated_at", { mode: "date", precision: 3 }),
+    completedAt: timestamp("completed_at", { mode: "date", precision: 3 }),
+    lockedAt: timestamp("locked_at", { mode: "date", precision: 3 }),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [
     index("reports_property_idx").on(t.propertyId),
@@ -83,7 +82,7 @@ export const reports = sqliteTable(
 );
 
 /** Rooms/areas within a report. */
-export const rooms = sqliteTable(
+export const rooms = pgTable(
   "rooms",
   {
     id: text("id").primaryKey(),
@@ -96,15 +95,15 @@ export const rooms = sqliteTable(
     cleanliness: text("cleanliness"),
     notes: text("notes"),
     /** Clerk has finished this room (drives inspection progress). */
-    completed: integer("completed", { mode: "boolean" }).default(false).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    completed: boolean("completed").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("rooms_report_idx").on(t.reportId)],
 );
 
 /** Items/areas inspected within a room. */
-export const items = sqliteTable(
+export const items = pgTable(
   "items",
   {
     id: text("id").primaryKey(),
@@ -121,14 +120,14 @@ export const items = sqliteTable(
     changeStatus: text("change_status"),
     /** Check-out only: the check-in item this row was copied from. */
     previousItemId: text("previous_item_id"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("items_room_idx").on(t.roomId), index("items_report_idx").on(t.reportId)],
 );
 
 /** Photos — always linked to property + report, and optionally room + item. */
-export const photos = sqliteTable(
+export const photos = pgTable(
   "photos",
   {
     id: text("id").primaryKey(),
@@ -147,7 +146,7 @@ export const photos = sqliteTable(
     sortOrder: integer("sort_order").default(0).notNull(),
     /** Client-generated id so offline queues stay idempotent. */
     clientId: text("client_id"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [
     index("photos_report_idx").on(t.reportId),
@@ -158,7 +157,7 @@ export const photos = sqliteTable(
 );
 
 /** Meter readings recorded at check-in / check-out. */
-export const meterReadings = sqliteTable(
+export const meterReadings = pgTable(
   "meter_readings",
   {
     id: text("id").primaryKey(),
@@ -169,13 +168,13 @@ export const meterReadings = sqliteTable(
     reading: text("reading"),
     location: text("location"),
     notes: text("notes"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("meters_report_idx").on(t.reportId)],
 );
 
 /** Keys handed over / returned. */
-export const keySets = sqliteTable(
+export const keySets = pgTable(
   "key_sets",
   {
     id: text("id").primaryKey(),
@@ -183,13 +182,13 @@ export const keySets = sqliteTable(
     description: text("description").notNull(),
     quantity: integer("quantity").default(1).notNull(),
     notes: text("notes"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("keys_report_idx").on(t.reportId)],
 );
 
 /** Digital signatures against a completed report. */
-export const signatures = sqliteTable(
+export const signatures = pgTable(
   "signatures",
   {
     id: text("id").primaryKey(),
@@ -202,31 +201,31 @@ export const signatures = sqliteTable(
     storageKey: text("storage_key").notNull(),
     statement: text("statement"),
     ipAddress: text("ip_address"),
-    signedAt: integer("signed_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    signedAt: timestamp("signed_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("signatures_report_idx").on(t.reportId)],
 );
 
 /** Scheduled/upcoming inspections shown on the dashboard. */
-export const scheduledInspections = sqliteTable(
+export const scheduledInspections = pgTable(
   "scheduled_inspections",
   {
     id: text("id").primaryKey(),
     propertyId: text("property_id").notNull(),
     userId: text("user_id").notNull(),
     type: text("type").notNull(),
-    scheduledFor: integer("scheduled_for", { mode: "timestamp_ms" }).notNull(),
+    scheduledFor: timestamp("scheduled_for", { mode: "date", precision: 3 }).notNull(),
     notes: text("notes"),
     /** scheduled | completed | cancelled */
     status: text("status").default("scheduled").notNull(),
     reportId: text("report_id"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("scheduled_user_idx").on(t.userId), index("scheduled_date_idx").on(t.scheduledFor)],
 );
 
 /** Subscription state — Stripe-ready, no pricing hard-coded. */
-export const subscriptions = sqliteTable(
+export const subscriptions = pgTable(
   "subscriptions",
   {
     id: text("id").primaryKey(),
@@ -240,21 +239,21 @@ export const subscriptions = sqliteTable(
     seats: integer("seats").default(1).notNull(),
     priceAmount: real("price_amount"),
     currency: text("currency").default("GBP").notNull(),
-    trialEndsAt: integer("trial_ends_at", { mode: "timestamp_ms" }),
-    currentPeriodStart: integer("current_period_start", { mode: "timestamp_ms" }),
-    currentPeriodEnd: integer("current_period_end", { mode: "timestamp_ms" }),
-    cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" }).default(false).notNull(),
+    trialEndsAt: timestamp("trial_ends_at", { mode: "date", precision: 3 }),
+    currentPeriodStart: timestamp("current_period_start", { mode: "date", precision: 3 }),
+    currentPeriodEnd: timestamp("current_period_end", { mode: "date", precision: 3 }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
     stripePriceId: text("stripe_price_id"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("subscriptions_user_idx").on(t.userId)],
 );
 
 /** Audit trail — who did what, needed for locked/signed reports. */
-export const auditLog = sqliteTable(
+export const auditLog = pgTable(
   "audit_log",
   {
     id: text("id").primaryKey(),
@@ -263,9 +262,7 @@ export const auditLog = sqliteTable(
     entityId: text("entity_id").notNull(),
     action: text("action").notNull(),
     detail: text("detail"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
-      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-      .notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).defaultNow().notNull(),
   },
   (t) => [index("audit_entity_idx").on(t.entityType, t.entityId)],
 );
@@ -274,7 +271,7 @@ export const auditLog = sqliteTable(
  * Public booking requests submitted from the landing page — a landlord or agent
  * asking for an inventory/inspection visit. No account required to submit.
  */
-export const bookingRequests = sqliteTable(
+export const bookingRequests = pgTable(
   "booking_requests",
   {
     id: text("id").primaryKey(),
@@ -291,7 +288,7 @@ export const bookingRequests = sqliteTable(
     /** GB | ES — null on older bookings means GB. */
     propertyCountry: text("property_country"),
     /** Structured Spanish address (JSON, see lib/spain-address.ts) — Spain is searched by street, not postcode. */
-    propertyAddressEs: text("property_address_es", { mode: "json" }).$type<SpanishAddress>(),
+    propertyAddressEs: jsonb("property_address_es").$type<SpanishAddress>(),
     /** Size, as given by the requester. 0 bedrooms = studio; the top option ("6+", "5+", "4+") is stored as that number. */
     bedrooms: integer("bedrooms"),
     bathrooms: integer("bathrooms"),
@@ -307,15 +304,15 @@ export const bookingRequests = sqliteTable(
     confirmedDate: text("confirmed_date"),
     confirmedTime: text("confirmed_time"),
     /** When the requester was last emailed that the visit is booked in. */
-    confirmationSentAt: integer("confirmation_sent_at", { mode: "timestamp_ms" }),
+    confirmationSentAt: timestamp("confirmation_sent_at", { mode: "date", precision: 3 }),
     /** Versions of the booking terms and privacy/retention notice the requester agreed to. */
     termsVersion: text("terms_version"),
     privacyNoticeVersion: text("privacy_notice_version"),
-    termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp_ms" }),
+    termsAcceptedAt: timestamp("terms_accepted_at", { mode: "date", precision: 3 }),
     /** Language the booking form and terms were shown in: en | es. The English terms govern. */
     locale: text("locale"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [
     index("booking_status_idx").on(t.status),
@@ -325,7 +322,7 @@ export const bookingRequests = sqliteTable(
 );
 
 /** Immutable public report snapshots. Only a SHA-256 digest of the bearer token is stored. */
-export const tenantReports = sqliteTable("tenant_reports", {
+export const tenantReports = pgTable("tenant_reports", {
   id: text("id").primaryKey(),
   tokenHash: text("token_hash").notNull().unique(),
   sourceReportId: text("source_report_id"),
@@ -334,26 +331,30 @@ export const tenantReports = sqliteTable("tenant_reports", {
   response: text("response").notNull(),
   revision: integer("revision").notNull().default(0),
   declaration: text("declaration"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-  submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+  createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+  submittedAt: timestamp("submitted_at", { mode: "date", precision: 3 }),
 });
 
 /** Reservations and verified tenant assets, scoped to exactly one share. */
-export const tenantAssets = sqliteTable("tenant_assets", {
-  id: text("id").primaryKey(),
-  shareId: text("share_id").notNull().references(() => tenantReports.id),
-  kind: text("kind").notNull(),
-  contentType: text("content_type").notNull(),
-  storageKey: text("storage_key").notNull(),
-  ready: integer("ready", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
-}, (t) => [index("tenant_assets_share_idx").on(t.shareId)]);
+export const tenantAssets = pgTable(
+  "tenant_assets",
+  {
+    id: text("id").primaryKey(),
+    shareId: text("share_id").notNull().references(() => tenantReports.id),
+    kind: text("kind").notNull(),
+    contentType: text("content_type").notNull(),
+    storageKey: text("storage_key").notNull(),
+    ready: boolean("ready").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+  },
+  (t) => [index("tenant_assets_share_idx").on(t.shareId)],
+);
 
 /** Persistent hourly limits, shared across API workers/restarts. No raw IP addresses stored. */
-export const tenantRateLimits = sqliteTable("tenant_rate_limits", {
+export const tenantRateLimits = pgTable("tenant_rate_limits", {
   key: text("key").primaryKey(),
   hits: integer("hits").notNull().default(1),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date", precision: 3 }).notNull(),
 });
 
 /**
@@ -361,14 +362,14 @@ export const tenantRateLimits = sqliteTable("tenant_rate_limits", {
  * the link sees the bookings made with that email address, so only a SHA-256
  * digest of the token is stored and every link expires.
  */
-export const bookingAccessLinks = sqliteTable(
+export const bookingAccessLinks = pgTable(
   "booking_access_links",
   {
     id: text("id").primaryKey(),
     tokenHash: text("token_hash").notNull().unique(),
     email: text("email").notNull(),
-    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(now).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date", precision: 3 }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("booking_access_email_idx").on(t.email), index("booking_access_expiry_idx").on(t.expiresAt)],
 );

@@ -11,10 +11,12 @@ import {
   Home,
   Mail,
   MapPin,
+  Menu,
   PenLine,
   Phone,
   ScrollText,
   ShieldCheck,
+  X,
   Zap,
 } from "lucide-react";
 import { Logo } from "../components/logo";
@@ -195,6 +197,26 @@ export default function Landing() {
   useDocumentTitle(c.docTitle);
   const [location, setLocation] = useLocation();
   const [authOpen, setAuthOpen] = useState(location === "/sign-in");
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // The phone menu closes with Escape, and the page behind it does not scroll while it is open.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [menuOpen]);
+
+  /** Runs a menu action and closes the menu first. */
+  const fromMenu = (action: () => void) => () => {
+    setMenuOpen(false);
+    action();
+  };
 
   useEffect(() => {
     if (location === "/sign-in") setAuthOpen(true);
@@ -212,7 +234,7 @@ export default function Landing() {
       <BookingDialog open={booking.open} onClose={booking.hide} />
       <AuthDialog open={authOpen} onClose={closeAuth} />
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
+        <div className="relative z-40 mx-auto flex max-w-6xl items-center justify-between gap-4 bg-white px-5 py-3">
           <button type="button" onClick={() => scrollTo("top")} className="shrink-0 text-left">
             <Logo size={26} withTagline />
           </button>
@@ -241,20 +263,95 @@ export default function Landing() {
                 {c.nav.signIn}
               </button>
             </nav>
-            <LanguageSwitch />
+            <LanguageSwitch className="hidden md:inline-flex" />
+            <button
+              type="button"
+              className="grid size-11 place-items-center rounded-xl text-brand-900 transition-colors hover:bg-brand-100 md:hidden"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
+            </button>
           </div>
         </div>
-        <nav aria-label="Mobile navigation" className="flex items-center justify-center gap-x-4 border-t border-ink-100 px-4 py-2 text-sm font-semibold text-brand-800 md:hidden">
-          <Link href="/prices" className="inline-flex min-h-11 items-center">{c.nav.prices}</Link>
-          <a href="/in360view-price-list.pdf" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2">
-            <FileText className="size-4" /> {c.nav.pricesPdf}
-          </a>
-          <Link href="/my-bookings" className="inline-flex min-h-11 items-center">{c.nav.mine}</Link>
-          <button type="button" className="min-h-11" onClick={booking.show}>{c.nav.book}</button>
-          <button type="button" className="min-h-11 font-bold text-brand-900 underline" onClick={() => setAuthOpen(true)}>
-            {c.nav.signIn}
-          </button>
-        </nav>
+
+        {menuOpen && (
+          <div className="md:hidden">
+            <button
+              type="button"
+              aria-label="Close menu"
+              tabIndex={-1}
+              className="fixed inset-0 z-30 bg-brand-900/40 backdrop-blur-[2px]"
+              onClick={() => setMenuOpen(false)}
+            />
+            <nav
+              id="mobile-menu"
+              aria-label="Mobile navigation"
+              className="absolute inset-x-0 top-full z-40 max-h-[calc(100dvh-72px)] overflow-y-auto border-b border-ink-100 bg-white px-4 pb-5 pt-2 shadow-lg"
+            >
+              {[
+                { label: c.nav.services, run: () => scrollTo("services") },
+                { label: c.nav.why, run: () => scrollTo("why") },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={fromMenu(item.run)}
+                  className="flex min-h-12 w-full items-center justify-between border-b border-ink-100 px-2 text-left text-[16px] font-medium text-ink-900"
+                >
+                  {item.label}
+                </button>
+              ))}
+              <Link
+                href="/prices"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-12 items-center justify-between border-b border-ink-100 px-2 text-[16px] font-medium text-ink-900"
+              >
+                {c.nav.prices}
+              </Link>
+              <a
+                href="/in360view-price-list.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-12 items-center justify-between border-b border-ink-100 px-2 text-[16px] font-medium text-ink-900"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <FileText className="size-4 text-brand-800" /> {c.nav.pricesPdf}
+                </span>
+              </a>
+              <Link
+                href="/my-bookings"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-12 items-center justify-between border-b border-ink-100 px-2 text-[16px] font-medium text-ink-900"
+              >
+                {c.nav.mine}
+              </Link>
+
+              <div className="mt-4 grid gap-2.5">
+                <button
+                  type="button"
+                  className="min-h-12 rounded-xl bg-brand-800 px-4 text-[16px] font-semibold text-white shadow-sm active:bg-brand-900"
+                  onClick={fromMenu(booking.show)}
+                >
+                  {c.nav.book}
+                </button>
+                <button
+                  type="button"
+                  className="min-h-12 rounded-xl border border-brand-800 px-4 text-[16px] font-semibold text-brand-800 active:bg-brand-100"
+                  onClick={fromMenu(() => setAuthOpen(true))}
+                >
+                  {c.nav.signIn}
+                </button>
+              </div>
+              <div className="mt-4 flex justify-center">
+                <LanguageSwitch />
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       <section id="top" className="relative isolate overflow-hidden bg-brand-900">

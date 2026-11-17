@@ -53,6 +53,7 @@ export const tenantSnapshotSchema = z
           serialNumber: z.string().max(150).nullish(),
           reading: z.string().max(150).nullish(),
           location: z.string().max(300).nullish(),
+          photoUrls: photos,
         }),
       )
       .max(30)
@@ -63,6 +64,19 @@ export const tenantSnapshotSchema = z
           description: z.string().max(500),
           quantity: z.number().int().min(0).max(1000),
           notes: z.string().max(1000).nullish(),
+          photoUrls: photos,
+        }),
+      )
+      .max(50)
+      .default([]),
+    alarms: z
+      .array(
+        z.object({
+          type: z.string().max(60),
+          location: z.string().max(300).nullish(),
+          status: z.string().max(30).nullish(),
+          notes: z.string().max(1000).nullish(),
+          photoUrls: photos,
         }),
       )
       .max(50)

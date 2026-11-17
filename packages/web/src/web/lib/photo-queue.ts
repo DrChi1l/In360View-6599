@@ -21,6 +21,9 @@ export type QueuedPhoto = {
   reportId: string;
   roomId: string | null;
   itemId: string | null;
+  meterId?: string | null;
+  keyId?: string | null;
+  alarmId?: string | null;
   caption: string | null;
   full: Blob;
   thumb: Blob;
@@ -119,12 +122,25 @@ async function refreshCounts() {
 }
 
 /** Photos still waiting to upload for one report, newest first. */
-export async function pendingFor(reportId: string, roomId?: string | null, itemId?: string | null) {
+export async function pendingFor(
+  reportId: string,
+  roomId?: string | null,
+  itemId?: string | null,
+  link: { meterId?: string | null; keyId?: string | null; alarmId?: string | null } = {},
+) {
   const entries = await allEntries();
+  const linked = link.meterId || link.keyId || link.alarmId;
   return entries
     .filter((e) => e.reportId === reportId)
-    .filter((e) => (roomId === undefined ? true : e.roomId === roomId))
-    .filter((e) => (itemId === undefined ? true : e.itemId === itemId))
+    .filter((e) =>
+      linked
+        ? (link.meterId ? e.meterId === link.meterId : true) &&
+          (link.keyId ? e.keyId === link.keyId : true) &&
+          (link.alarmId ? e.alarmId === link.alarmId : true)
+        : true,
+    )
+    .filter((e) => (linked || roomId === undefined ? true : e.roomId === roomId))
+    .filter((e) => (linked || itemId === undefined ? true : e.itemId === itemId))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
@@ -132,6 +148,9 @@ export type EnqueueTarget = {
   reportId: string;
   roomId?: string | null;
   itemId?: string | null;
+  meterId?: string | null;
+  keyId?: string | null;
+  alarmId?: string | null;
   caption?: string | null;
 };
 
@@ -143,6 +162,9 @@ export async function enqueuePhoto(file: Blob, target: EnqueueTarget) {
     reportId: target.reportId,
     roomId: target.roomId ?? null,
     itemId: target.itemId ?? null,
+    meterId: target.meterId ?? null,
+    keyId: target.keyId ?? null,
+    alarmId: target.alarmId ?? null,
     caption: target.caption ?? null,
     full: prepared.full,
     thumb: prepared.thumb,
@@ -231,6 +253,9 @@ async function upload(entry: QueuedPhoto, slot: UploadSlot): Promise<Outcome> {
       reportId: entry.reportId,
       roomId: entry.roomId,
       itemId: entry.itemId,
+      meterId: entry.meterId ?? null,
+      keyId: entry.keyId ?? null,
+      alarmId: entry.alarmId ?? null,
       storageKey: slot.storageKey,
       thumbKey: slot.thumbKey,
       contentType: "image/jpeg",

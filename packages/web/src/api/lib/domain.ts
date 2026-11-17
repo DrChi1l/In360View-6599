@@ -88,6 +88,23 @@ export const METER_TYPES = [
   { value: "other", label: "Other" },
 ] as const;
 
+export const ALARM_TYPES = [
+  { value: "smoke", label: "Smoke alarm" },
+  { value: "co", label: "Carbon monoxide (CO) alarm" },
+  { value: "heat", label: "Heat alarm" },
+  { value: "gas", label: "Gas detector" },
+  { value: "fire_blanket", label: "Fire blanket" },
+  { value: "fire_extinguisher", label: "Fire extinguisher" },
+  { value: "other", label: "Other safety item" },
+] as const;
+
+export const ALARM_STATUSES = [
+  { value: "working", label: "Working" },
+  { value: "not_working", label: "Not working" },
+  { value: "missing", label: "Missing" },
+  { value: "not_tested", label: "Not tested" },
+] as const;
+
 /** Standard fabric items present in nearly every room. */
 const FABRIC = [
   "Walls",

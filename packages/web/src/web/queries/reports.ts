@@ -82,3 +82,8 @@ export function useSaveKeys(reportId?: string) {
   const invalidate = useInvalidateReport();
   return useMutation(orpc.reports.keys.save.mutationOptions({ onSuccess: () => invalidate(reportId) }));
 }
+
+export function useSaveAlarms(reportId?: string) {
+  const invalidate = useInvalidateReport();
+  return useMutation(orpc.reports.alarms.save.mutationOptions({ onSuccess: () => invalidate(reportId) }));
+}

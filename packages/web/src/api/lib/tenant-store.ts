@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { and, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { cleanTenantImage } from "./tenant-image";
@@ -53,11 +53,16 @@ export async function tenantLimit(headers: Headers, action: string, max: number,
   void headers;
 }
 
-export async function createTenantReport(input: TenantCreate, sourceReportId?: string) {
+function serialiseSnapshot(input: TenantCreate) {
   const parsed = tenantCreateSchema.parse(input);
   const snapshot = JSON.stringify(parsed.report);
   if (Buffer.byteLength(snapshot) > 2 * 1024 * 1024)
     throw new ORPCError("BAD_REQUEST", { message: "Report exceeds 2 MB JSON limit." });
+  return snapshot;
+}
+
+export async function createTenantReport(input: TenantCreate, sourceReportId?: string, sentTo?: string) {
+  const snapshot = serialiseSnapshot(input);
   const token = randomBytes(32).toString("base64url");
   await db.insert(tenantReports).values({
     id: randomBytes(16).toString("hex"),
@@ -66,8 +71,94 @@ export async function createTenantReport(input: TenantCreate, sourceReportId?: s
     snapshot,
     snapshotHash: digest(snapshot),
     response: JSON.stringify(emptyResponse),
+    sentTo: sentTo ?? null,
+    sentAt: sentTo ? new Date() : null,
   });
   return { token, url: `https://in360view.co.uk/t/${token}` };
+}
+
+const latestShare = async (sourceReportId: string) =>
+  (
+    await db
+      .select()
+      .from(tenantReports)
+      .where(eq(tenantReports.sourceReportId, sourceReportId))
+      .orderBy(desc(tenantReports.createdAt))
+      .limit(1)
+  )[0];
+
+/**
+ * The link for a report, made or renewed. A report has one review link: sending again gives a
+ * NEW address (the old one stops working) and, while the tenant has not started, refreshes the
+ * report they see with the inspector's latest changes. Once the tenant has signed it is final.
+ */
+export async function issueTenantLink(input: TenantCreate, sourceReportId: string, sentTo?: string) {
+  const existing = await latestShare(sourceReportId);
+  if (!existing) return createTenantReport(input, sourceReportId, sentTo);
+  if (existing.submittedAt)
+    throw new ORPCError("CONFLICT", {
+      message: "The tenant has already signed this report. Add their response to the report instead.",
+    });
+  const token = randomBytes(32).toString("base64url");
+  const fresh = existing.revision === 0 ? serialiseSnapshot(input) : null;
+  await db
+    .update(tenantReports)
+    .set({
+      tokenHash: digest(token),
+      ...(fresh ? { snapshot: fresh, snapshotHash: digest(fresh) } : {}),
+      sentTo: sentTo ?? existing.sentTo,
+      sentAt: sentTo ? new Date() : existing.sentAt,
+    })
+    .where(and(eq(tenantReports.id, existing.id), isNull(tenantReports.submittedAt)));
+  return { token, url: `https://in360view.co.uk/t/${token}` };
+}
+
+/** What the tenant did with the link for a report, for the inspector (never exposes the link). */
+export async function getTenantStatusForReport(sourceReportId: string) {
+  const share = await latestShare(sourceReportId);
+  if (!share) return { status: "none" as const };
+  const base = {
+    sentTo: share.sentTo,
+    sentAt: share.sentAt?.toISOString() ?? null,
+    submittedAt: share.submittedAt?.toISOString() ?? null,
+  };
+  if (!share.submittedAt) return { status: "open" as const, ...base };
+  const response = JSON.parse(share.response) as TenantResponse;
+  const snapshot = JSON.parse(share.snapshot) as TenantSnapshot;
+  const where = new Map<string, { roomId: string; label: string }>();
+  for (const room of snapshot.rooms)
+    for (const item of room.items) where.set(item.id, { roomId: room.id, label: `${room.name} - ${item.name}` });
+  const assets = await db
+    .select()
+    .from(tenantAssets)
+    .where(and(eq(tenantAssets.shareId, share.id), eq(tenantAssets.ready, true)));
+  const asset = new Map(assets.map((a) => [a.id, a]));
+  const photos = await Promise.all(
+    response.photos.map(async (p) => {
+      const a = asset.get(p.assetId);
+      return {
+        assetId: p.assetId,
+        itemId: p.itemId,
+        roomId: p.itemId ? (where.get(p.itemId)?.roomId ?? null) : null,
+        caption: p.caption,
+        url: a ? await presignGet(a.storageKey, 900) : null,
+      };
+    }),
+  );
+  const signature = response.signatureAssetId ? asset.get(response.signatureAssetId) : null;
+  return {
+    status: "submitted" as const,
+    ...base,
+    name: response.name,
+    declaration: share.declaration ?? TENANT_DECLARATION,
+    comments: response.comments.map((c) => ({
+      itemId: c.itemId,
+      label: c.itemId ? (where.get(c.itemId)?.label ?? "") : "",
+      text: c.text,
+    })),
+    photos,
+    signatureUrl: signature ? await presignGet(signature.storageKey, 900) : null,
+  };
 }
 
 export async function tenantShare(token: string, editable = false) {

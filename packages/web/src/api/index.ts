@@ -14,7 +14,13 @@ import { properties } from "./routes/properties";
 import { reports } from "./routes/reports";
 import { search } from "./routes/search";
 import { signatures } from "./routes/signatures";
-import { ingestTenantReport, streamTenantReport, tenantReport } from "./routes/tenant-report";
+import {
+  appSendTenantLink,
+  appTenantLinkStatus,
+  ingestTenantReport,
+  streamTenantReport,
+  tenantReport,
+} from "./routes/tenant-report";
 
 // API features are oRPC procedures, one file per feature in ./routes/,
 // composed into this router — typed end-to-end via the clients
@@ -44,6 +50,10 @@ const app = createApp(router);
 
 app.post("/api/tenant-report", ingestTenantReport);
 app.get("/api/tenant-report/:token", streamTenantReport);
+
+// Used by the inspector app (Supabase bearer token): send a report to a tenant, read their response.
+app.post("/api/app/tenant-link", appSendTenantLink);
+app.get("/api/app/tenant-link/:reportId", appTenantLinkStatus);
 
 // Photograph links inside downloaded report PDFs — redirects to a freshly
 // presigned storage URL so the link never expires.

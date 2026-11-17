@@ -8,6 +8,7 @@ import {
   Download,
   FileDown,
   FileText,
+  BellRing,
   Gauge,
   KeyRound,
   Lock,
@@ -31,6 +32,7 @@ import {
   useDeleteReport,
   useReopenReport,
   useReport,
+  useSaveAlarms,
   useSaveKeys,
   useSaveMeters,
   useUpdateReport,
@@ -38,7 +40,7 @@ import {
 import { useAddRoom, useRemoveRoom } from "../queries/inspection";
 import { useEmailReport, useGeneratePdf, useReportPdf } from "../queries/documents";
 import { formatDate, formatDateInput, pluralise, shortAddress } from "../lib/format";
-import { METER_TYPES, ROOM_TEMPLATES } from "../../api/lib/domain";
+import { ALARM_STATUSES, ALARM_TYPES, METER_TYPES, ROOM_TEMPLATES } from "../../api/lib/domain";
 import { TenantShare } from "../components/tenant-share";
 
 export default function ReportDetail({ id }: { id?: string }) {
@@ -64,7 +66,7 @@ export default function ReportDetail({ id }: { id?: string }) {
     );
   }
 
-  const { report, property, rooms, meters, keys, signatures } = query.data;
+  const { report, property, rooms, meters, keys, alarms, signatures } = query.data;
   const locked = Boolean(report.lockedAt);
   const doneRooms = rooms.filter((r) => r.completed).length;
   const photoTotal = query.data.photos.length;
@@ -139,6 +141,7 @@ export default function ReportDetail({ id }: { id?: string }) {
           <Summary report={report} locked={locked} />
           <Meters reportId={report.id} rows={meters} locked={locked} />
           <Keys reportId={report.id} rows={keys} locked={locked} />
+          <Alarms reportId={report.id} rows={alarms} locked={locked} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
@@ -518,6 +521,7 @@ function Summary({ report, locked }: { report: ReportRow; locked: boolean }) {
 /* ---------------------------------------------------------------- meters */
 
 type MeterRow = {
+  id?: string;
   meterType: string;
   serialNumber: string | null;
   reading: string | null;
@@ -539,7 +543,8 @@ function Meters({ reportId, rows, locked }: { reportId: string; rows: MeterRow[]
         <div className="flex flex-col gap-3">
           {list.length === 0 && <p className="text-[13px] text-ink-500">No readings recorded.</p>}
           {list.map((row, index) => (
-            <div key={index} className="grid gap-2 rounded-[10px] bg-ink-100/50 p-3 sm:grid-cols-4">
+            <div key={row.id ?? `new-${index}`} className="rounded-[10px] bg-ink-100/50 p-3">
+            <div className="grid gap-2 sm:grid-cols-4">
               <Field label="Meter">
                 <Select
                   disabled={locked}
@@ -595,6 +600,8 @@ function Meters({ reportId, rows, locked }: { reportId: string; rows: MeterRow[]
                 </div>
               </Field>
             </div>
+            <RowPhotos reportId={reportId} locked={locked} link={{ meterId: row.id }} />
+            </div>
           ))}
         </div>
 
@@ -623,6 +630,7 @@ function Meters({ reportId, rows, locked }: { reportId: string; rows: MeterRow[]
                   {
                     reportId,
                     readings: list.map((r) => ({
+                      id: r.id,
                       meterType: r.meterType,
                       serialNumber: r.serialNumber || null,
                       reading: r.reading || null,
@@ -648,7 +656,7 @@ function Meters({ reportId, rows, locked }: { reportId: string; rows: MeterRow[]
 
 /* ------------------------------------------------------------------ keys */
 
-type KeyRow = { description: string; quantity: number; notes: string | null };
+type KeyRow = { id?: string; description: string; quantity: number; notes: string | null };
 
 function Keys({ reportId, rows, locked }: { reportId: string; rows: KeyRow[]; locked: boolean }) {
   const save = useSaveKeys(reportId);
@@ -664,7 +672,8 @@ function Keys({ reportId, rows, locked }: { reportId: string; rows: KeyRow[]; lo
         <div className="flex flex-col gap-2">
           {list.length === 0 && <p className="text-[13px] text-ink-500">No keys recorded.</p>}
           {list.map((row, index) => (
-            <div key={index} className="flex items-end gap-2">
+            <div key={row.id ?? `new-${index}`} className="rounded-[10px] bg-ink-100/50 p-3">
+            <div className="flex items-end gap-2">
               <Field label="Description" className="flex-1">
                 <Input
                   disabled={locked}
@@ -699,6 +708,8 @@ function Keys({ reportId, rows, locked }: { reportId: string; rows: KeyRow[]; lo
                 </button>
               )}
             </div>
+            <RowPhotos reportId={reportId} locked={locked} link={{ keyId: row.id }} />
+            </div>
           ))}
         </div>
 
@@ -724,6 +735,7 @@ function Keys({ reportId, rows, locked }: { reportId: string; rows: KeyRow[]; lo
                     keys: list
                       .filter((k) => k.description.trim())
                       .map((k) => ({
+                        id: k.id,
                         description: k.description.trim(),
                         quantity: k.quantity,
                         notes: k.notes || null,
@@ -735,6 +747,170 @@ function Keys({ reportId, rows, locked }: { reportId: string; rows: KeyRow[]; lo
             >
               {save.isPending ? <Spinner /> : <KeyRound className="size-4" />}
               Save keys
+            </Button>
+            {saved && !save.isPending && <span className="text-[13px] text-ok">Saved</span>}
+          </div>
+        )}
+        <ErrorNote error={save.error} className="mt-2" />
+      </Card>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- alarms */
+
+type AlarmRow = {
+  id?: string;
+  alarmType: string;
+  location: string | null;
+  status: string | null;
+  notes: string | null;
+};
+
+/** Photos of one saved meter, set of keys or alarm. A row that is not saved yet has no id to attach them to. */
+function RowPhotos({
+  reportId,
+  locked,
+  link,
+}: {
+  reportId: string;
+  locked: boolean;
+  link: { meterId?: string; keyId?: string; alarmId?: string };
+}) {
+  const id = link.meterId ?? link.keyId ?? link.alarmId;
+  if (!id) {
+    return <p className="mt-2 text-[12px] text-ink-500">Save first, then add photos.</p>;
+  }
+  return (
+    <div className="mt-3">
+      <PhotoGrid
+        scope={{ reportId, ...link }}
+        locked={locked}
+        columns="grid-cols-3 md:grid-cols-5"
+        emptyLabel="No photos yet."
+      />
+    </div>
+  );
+}
+
+function Alarms({ reportId, rows, locked }: { reportId: string; rows: AlarmRow[]; locked: boolean }) {
+  const save = useSaveAlarms(reportId);
+  const [list, setList] = useState<AlarmRow[]>(rows);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => setList(rows), [rows]);
+
+  const update = (index: number, patch: Partial<AlarmRow>) =>
+    setList((l) => l.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+  return (
+    <section>
+      <SectionTitle className="mb-2">Alarms and safety</SectionTitle>
+      <Card className="p-4">
+        <div className="flex flex-col gap-3">
+          {list.length === 0 && (
+            <p className="text-[13px] text-ink-500">
+              No alarms recorded. Add smoke alarms, CO alarms and other safety equipment.
+            </p>
+          )}
+          {list.map((row, index) => (
+            <div key={row.id ?? `new-${index}`} className="rounded-[10px] bg-ink-100/50 p-3">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Field label="Type">
+                  <Select
+                    disabled={locked}
+                    value={row.alarmType}
+                    onChange={(e) => update(index, { alarmType: e.target.value })}
+                  >
+                    {ALARM_TYPES.map((a) => (
+                      <option key={a.value} value={a.value}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Status">
+                  <Select
+                    disabled={locked}
+                    value={row.status ?? ""}
+                    onChange={(e) => update(index, { status: e.target.value || null })}
+                  >
+                    <option value="">Not recorded</option>
+                    {ALARM_STATUSES.map((a) => (
+                      <option key={a.value} value={a.value}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Location">
+                  <div className="flex gap-2">
+                    <Input
+                      disabled={locked}
+                      value={row.location ?? ""}
+                      placeholder="Hallway"
+                      onChange={(e) => update(index, { location: e.target.value })}
+                    />
+                    {!locked && (
+                      <button
+                        type="button"
+                        aria-label="Remove alarm"
+                        className="grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-500 hover:bg-danger-soft hover:text-danger"
+                        onClick={() => setList((l) => l.filter((_, i) => i !== index))}
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </Field>
+              </div>
+              <Field label="Notes" className="mt-2">
+                <Input
+                  disabled={locked}
+                  value={row.notes ?? ""}
+                  onChange={(e) => update(index, { notes: e.target.value })}
+                />
+              </Field>
+              <RowPhotos reportId={reportId} locked={locked} link={{ alarmId: row.id }} />
+            </div>
+          ))}
+        </div>
+
+        {!locked && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-ink-200"
+              onClick={() =>
+                setList((l) => [...l, { alarmType: "smoke", status: "working", location: "", notes: "" }])
+              }
+            >
+              <Plus className="size-4" />
+              Add alarm
+            </Button>
+            <Button
+              size="sm"
+              disabled={save.isPending}
+              onClick={() => {
+                setSaved(false);
+                save.mutate(
+                  {
+                    reportId,
+                    alarms: list.map((a) => ({
+                      id: a.id,
+                      alarmType: a.alarmType,
+                      status: (a.status || null) as "working" | "not_working" | "missing" | "not_tested" | null,
+                      location: a.location || null,
+                      notes: a.notes || null,
+                    })),
+                  },
+                  { onSuccess: () => setSaved(true) },
+                );
+              }}
+            >
+              {save.isPending ? <Spinner /> : <BellRing className="size-4" />}
+              Save alarms
             </Button>
             {saved && !save.isPending && <span className="text-[13px] text-ok">Saved</span>}
           </div>

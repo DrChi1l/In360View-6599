@@ -50,6 +50,10 @@ export const photos = {
         reportId: z.string(),
         roomId: z.string().optional().nullable(),
         itemId: z.string().optional().nullable(),
+        /** Set when the photo belongs to a meter reading, a set of keys or an alarm check. */
+        meterId: z.string().max(80).optional().nullable(),
+        keyId: z.string().max(80).optional().nullable(),
+        alarmId: z.string().max(80).optional().nullable(),
         storageKey: z.string(),
         thumbKey: z.string().optional().nullable(),
         contentType: z.string().default("image/jpeg"),
@@ -72,7 +76,13 @@ export const photos = {
         if (existing) return { ...existing, thumbUrl: await presignGet(existing.thumbKey ?? existing.storageKey) };
       }
 
-      const scope = input.itemId
+      const scope = input.meterId
+        ? eq(schema.photos.meterId, input.meterId)
+        : input.keyId
+          ? eq(schema.photos.keyId, input.keyId)
+          : input.alarmId
+            ? eq(schema.photos.alarmId, input.alarmId)
+            : input.itemId
         ? eq(schema.photos.itemId, input.itemId)
         : input.roomId
           ? and(eq(schema.photos.roomId, input.roomId), isNull(schema.photos.itemId))
@@ -89,6 +99,9 @@ export const photos = {
         reportId: report.id,
         roomId: input.roomId ?? null,
         itemId: input.itemId ?? null,
+        meterId: input.meterId ?? null,
+        keyId: input.keyId ?? null,
+        alarmId: input.alarmId ?? null,
         storageKey: input.storageKey,
         thumbKey: input.thumbKey ?? null,
         contentType: input.contentType,
@@ -112,6 +125,9 @@ export const photos = {
         reportId: z.string().optional(),
         roomId: z.string().optional(),
         itemId: z.string().optional(),
+        meterId: z.string().optional(),
+        keyId: z.string().optional(),
+        alarmId: z.string().optional(),
         propertyId: z.string().optional(),
         limit: z.number().int().min(1).max(120).default(60),
         offset: z.number().int().min(0).default(0),
@@ -125,6 +141,9 @@ export const photos = {
       }
       if (input.roomId) where.push(eq(schema.photos.roomId, input.roomId));
       if (input.itemId) where.push(eq(schema.photos.itemId, input.itemId));
+      if (input.meterId) where.push(eq(schema.photos.meterId, input.meterId));
+      if (input.keyId) where.push(eq(schema.photos.keyId, input.keyId));
+      if (input.alarmId) where.push(eq(schema.photos.alarmId, input.alarmId));
       if (input.propertyId) where.push(eq(schema.photos.propertyId, input.propertyId));
       if (!where.length) throw new ORPCError("BAD_REQUEST", { message: "A scope is required" });
 
@@ -143,6 +162,9 @@ export const photos = {
             id: p.id,
             roomId: p.roomId,
             itemId: p.itemId,
+            meterId: p.meterId,
+            keyId: p.keyId,
+            alarmId: p.alarmId,
             caption: p.caption,
             createdAt: p.createdAt,
             thumbUrl: await presignGet(p.thumbKey ?? p.storageKey),

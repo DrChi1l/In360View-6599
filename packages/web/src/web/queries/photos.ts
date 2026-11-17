@@ -4,10 +4,20 @@ import { useInvalidateReport } from "./reports";
 
 /** Paged thumbnails — never every photo of an inspection at once. */
 export function usePhotos(
-  scope: { reportId?: string; roomId?: string; itemId?: string; propertyId?: string },
+  scope: {
+    reportId?: string;
+    roomId?: string;
+    itemId?: string;
+    meterId?: string;
+    keyId?: string;
+    alarmId?: string;
+    propertyId?: string;
+  },
   options: { limit?: number; offset?: number; enabled?: boolean } = {},
 ) {
-  const hasScope = Boolean(scope.reportId || scope.roomId || scope.itemId || scope.propertyId);
+  const hasScope = Boolean(
+    scope.reportId || scope.roomId || scope.itemId || scope.meterId || scope.keyId || scope.alarmId || scope.propertyId,
+  );
   return useQuery(
     orpc.photos.list.queryOptions({
       input: { ...scope, limit: options.limit ?? 60, offset: options.offset ?? 0 },

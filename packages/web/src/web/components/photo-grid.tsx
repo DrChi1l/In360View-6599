@@ -11,14 +11,26 @@ import { Spinner } from "./empty-state";
 import { PhotoLightbox, type LightboxPhoto } from "./photo-lightbox";
 import { Button } from "./ui/button";
 
-type Scope = { reportId: string; roomId?: string | null; itemId?: string | null };
+type Scope = {
+  reportId: string;
+  roomId?: string | null;
+  itemId?: string | null;
+  /** A grid can also belong to one meter reading, set of keys or alarm check. */
+  meterId?: string | null;
+  keyId?: string | null;
+  alarmId?: string | null;
+};
 
 /** Local queue entries rendered as thumbnails until storage confirms them. */
 function usePendingPhotos(scope: Scope) {
   const [pending, setPending] = useState<QueuedPhoto[]>([]);
   const reload = useCallback(() => {
-    void pendingFor(scope.reportId, scope.roomId ?? null, scope.itemId ?? null).then(setPending);
-  }, [scope.reportId, scope.roomId, scope.itemId]);
+    void pendingFor(scope.reportId, scope.roomId ?? null, scope.itemId ?? null, {
+      meterId: scope.meterId,
+      keyId: scope.keyId,
+      alarmId: scope.alarmId,
+    }).then(setPending);
+  }, [scope.reportId, scope.roomId, scope.itemId, scope.meterId, scope.keyId, scope.alarmId]);
 
   useEffect(() => {
     reload();
@@ -62,7 +74,14 @@ export function PhotoGrid({
 }) {
   const queryClient = useQueryClient();
   const query = usePhotos(
-    { reportId: scope.reportId, roomId: scope.roomId ?? undefined, itemId: scope.itemId ?? undefined },
+    {
+      reportId: scope.reportId,
+      roomId: scope.roomId ?? undefined,
+      itemId: scope.itemId ?? undefined,
+      meterId: scope.meterId ?? undefined,
+      keyId: scope.keyId ?? undefined,
+      alarmId: scope.alarmId ?? undefined,
+    },
     { limit: 60 },
   );
   const { pending, reload } = usePendingPhotos(scope);
@@ -98,8 +117,17 @@ export function PhotoGrid({
   );
 
   // Room-level grids must not swallow the photos attached to their items.
+  const linkedScope = Boolean(scope.meterId || scope.keyId || scope.alarmId);
   const photos = (query.data?.photos ?? []).filter((p) =>
-    scope.itemId ? p.itemId === scope.itemId : scope.roomId ? p.itemId === null : true,
+    linkedScope
+      ? true
+      : p.meterId || p.keyId || p.alarmId
+        ? false
+        : scope.itemId
+          ? p.itemId === scope.itemId
+          : scope.roomId
+            ? p.itemId === null
+            : true,
   );
 
   const removePhoto = useRemovePhoto(scope.reportId);
@@ -135,6 +163,9 @@ export function PhotoGrid({
             reportId: scope.reportId,
             roomId: scope.roomId ?? null,
             itemId: scope.itemId ?? null,
+            meterId: scope.meterId ?? null,
+            keyId: scope.keyId ?? null,
+            alarmId: scope.alarmId ?? null,
           });
         } catch {
           // A file the browser cannot decode is skipped; the rest still upload.

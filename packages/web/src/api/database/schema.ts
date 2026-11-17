@@ -135,6 +135,10 @@ export const photos = pgTable(
     reportId: text("report_id"),
     roomId: text("room_id"),
     itemId: text("item_id"),
+    /** Set when the photo belongs to a meter reading, a set of keys or an alarm check. */
+    meterId: text("meter_id"),
+    keyId: text("key_id"),
+    alarmId: text("alarm_id"),
     /** S3 keys: full-size (compressed) and thumbnail. */
     storageKey: text("storage_key").notNull(),
     thumbKey: text("thumb_key"),
@@ -185,6 +189,23 @@ export const keySets = pgTable(
     createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
   (t) => [index("keys_report_idx").on(t.reportId)],
+);
+
+/** Smoke alarms, CO alarms and other safety equipment checked at the inspection. */
+export const alarmChecks = pgTable(
+  "alarm_checks",
+  {
+    id: text("id").primaryKey(),
+    reportId: text("report_id").notNull(),
+    /** smoke | co | heat | gas | fire_blanket | fire_extinguisher | other */
+    alarmType: text("alarm_type").notNull(),
+    location: text("location"),
+    /** working | not_working | missing | not_tested */
+    status: text("status"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+  },
+  (t) => [index("alarms_report_idx").on(t.reportId)],
 );
 
 /** Digital signatures against a completed report. */
@@ -331,6 +352,9 @@ export const tenantReports = pgTable("tenant_reports", {
   response: text("response").notNull(),
   revision: integer("revision").notNull().default(0),
   declaration: text("declaration"),
+  /** Who the link was emailed to, and when. */
+  sentTo: text("sent_to"),
+  sentAt: timestamp("sent_at", { mode: "date", precision: 3 }),
   createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   submittedAt: timestamp("submitted_at", { mode: "date", precision: 3 }),
 });

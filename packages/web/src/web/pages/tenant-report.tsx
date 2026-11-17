@@ -360,22 +360,39 @@ function ReviewForm({ token, initial }: { token: string; initial: Review }) {
         </section>
       ))}
 
-      {(report.meters.length > 0 || report.keys.length > 0) && (
+      {(report.meters.length > 0 || report.keys.length > 0 || (report.alarms ?? []).length > 0) && (
         <Card className="p-5">
-          <h2 className="mb-4 font-semibold">Meters & keys</h2>
-          <div className="space-y-3 text-sm">
+          <h2 className="mb-4 font-semibold">Meters, keys & alarms</h2>
+          <div className="space-y-4 text-sm">
             {report.meters.map((m, i) => (
-              <p key={i}>
-                <strong className="capitalize">{m.type.replace(/_/g, " ")}</strong> · Reading:{" "}
-                {m.reading || "Not recorded"} · Serial: {m.serialNumber || "Not recorded"}
-                {m.location && ` · ${m.location}`}
-              </p>
+              <div key={i}>
+                <p>
+                  <strong className="capitalize">{m.type.replace(/_/g, " ")}</strong> · Reading:{" "}
+                  {m.reading || "Not recorded"} · Serial: {m.serialNumber || "Not recorded"}
+                  {m.location && ` · ${m.location}`}
+                </p>
+                <Images urls={m.photoUrls ?? []} label={`${m.type} meter`} />
+              </div>
             ))}
             {report.keys.map((k, i) => (
-              <p key={`k${i}`}>
-                {k.quantity} × {k.description}
-                {k.notes && ` — ${k.notes}`}
-              </p>
+              <div key={`k${i}`}>
+                <p>
+                  {k.quantity} × {k.description}
+                  {k.notes && ` — ${k.notes}`}
+                </p>
+                <Images urls={k.photoUrls ?? []} label={k.description} />
+              </div>
+            ))}
+            {(report.alarms ?? []).map((a, i) => (
+              <div key={`a${i}`}>
+                <p>
+                  <strong className="capitalize">{a.type.replace(/_/g, " ")}</strong> ·{" "}
+                  {(a.status ?? "not recorded").replace(/_/g, " ")}
+                  {a.location && ` · ${a.location}`}
+                  {a.notes && ` — ${a.notes}`}
+                </p>
+                <Images urls={a.photoUrls ?? []} label={`${a.type} alarm`} />
+              </div>
             ))}
           </div>
         </Card>

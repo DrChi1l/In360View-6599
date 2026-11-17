@@ -42,6 +42,10 @@ export async function collectReportData(reportId: string): Promise<PdfReportData
     .from(schema.meterReadings)
     .where(eq(schema.meterReadings.reportId, reportId));
   const keys = await db.select().from(schema.keySets).where(eq(schema.keySets.reportId, reportId));
+  const alarms = await db
+    .select()
+    .from(schema.alarmChecks)
+    .where(eq(schema.alarmChecks.reportId, reportId));
 
   let previousItems: PdfReportData["previousItems"] = {};
   if (report.baseReportId) {
@@ -72,6 +76,9 @@ export async function collectReportData(reportId: string): Promise<PdfReportData
       id: p.id,
       roomId: p.roomId,
       itemId: p.itemId,
+      meterId: p.meterId,
+      keyId: p.keyId,
+      alarmId: p.alarmId,
       caption: p.caption,
       storageKey: p.storageKey,
       thumbKey: p.thumbKey,
@@ -79,6 +86,7 @@ export async function collectReportData(reportId: string): Promise<PdfReportData
     signatures: signatureRows,
     meters,
     keys,
+    alarms,
     previousItems,
     logoBytes: await loadLogoBytes(),
     logoLightBytes: await loadLogoLightBytes(),

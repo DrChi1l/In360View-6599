@@ -5,7 +5,7 @@ import { db } from "../database";
 import * as schema from "../database/schema";
 import { suggestedRooms, templateFor } from "../lib/domain";
 import { newId, newReference } from "../lib/ids";
-import { presignGet } from "../lib/s3";
+import { deleteObject, presignGet } from "../lib/s3";
 import { authed } from "../middleware/auth";
 import { assertPropertyAccess } from "./properties";
 
@@ -19,6 +19,55 @@ export async function loadReport(reportId: string, userId: string, role?: string
 export function assertEditable(report: typeof schema.reports.$inferSelect) {
   if (report.lockedAt) {
     throw new ORPCError("CONFLICT", { message: "This report is signed and locked. Changes are not allowed." });
+  }
+}
+
+/** Ids the app and the website choose for meters, keys and alarms (kept so their photos stay attached). */
+const rowId = z.string().regex(/^[a-z]{3}_[A-Za-z0-9]{8,40}$/);
+
+type RowTable = typeof schema.meterReadings | typeof schema.keySets | typeof schema.alarmChecks;
+
+/**
+ * Saves the full list of meters, keys or alarms for a report. Rows keep their id when they
+ * already exist, so photos attached to them stay; rows left out are removed together with
+ * their photographs.
+ */
+async function syncRows(
+  reportId: string,
+  table: RowTable,
+  photoColumn: "meterId" | "keyId" | "alarmId",
+  prefix: string,
+  rows: ({ id?: string } & Record<string, unknown>)[],
+) {
+  const existing = (await db.select({ id: table.id }).from(table).where(eq(table.reportId, reportId))) as { id: string }[];
+  const existingIds = new Set(existing.map((r) => r.id));
+  const keep = new Set<string>();
+  const prepared = rows.map((row) => {
+    const { id, ...values } = row;
+    const finalId = id && !keep.has(id) ? id : newId(prefix);
+    keep.add(finalId);
+    return { id: finalId, values };
+  });
+
+  const removed = existing.filter((r) => !keep.has(r.id)).map((r) => r.id);
+  if (removed.length) {
+    const gone = await db
+      .select()
+      .from(schema.photos)
+      .where(and(eq(schema.photos.reportId, reportId), inArray(schema.photos[photoColumn], removed)));
+    await db.delete(schema.photos).where(inArray(schema.photos.id, gone.map((p) => p.id).concat("none")));
+    for (const p of gone) {
+      await deleteObject(p.storageKey);
+      if (p.thumbKey) await deleteObject(p.thumbKey);
+    }
+    await db.delete(table).where(and(eq(table.reportId, reportId), inArray(table.id, removed)));
+  }
+  for (const { id, values } of prepared) {
+    if (existingIds.has(id)) {
+      await db.update(table).set(values as never).where(and(eq(table.reportId, reportId), eq(table.id, id)));
+    } else {
+      await db.insert(table).values({ id, reportId, ...values } as never);
+    }
   }
 }
 
@@ -171,6 +220,9 @@ export const reports = {
         id: schema.photos.id,
         roomId: schema.photos.roomId,
         itemId: schema.photos.itemId,
+        meterId: schema.photos.meterId,
+        keyId: schema.photos.keyId,
+        alarmId: schema.photos.alarmId,
         thumbKey: schema.photos.thumbKey,
         storageKey: schema.photos.storageKey,
         caption: schema.photos.caption,
@@ -192,6 +244,10 @@ export const reports = {
       .from(schema.meterReadings)
       .where(eq(schema.meterReadings.reportId, report.id));
     const keys = await db.select().from(schema.keySets).where(eq(schema.keySets.reportId, report.id));
+    const alarms = await db
+      .select()
+      .from(schema.alarmChecks)
+      .where(eq(schema.alarmChecks.reportId, report.id));
 
     // Previous check-in data for a check-out comparison.
     let previousItems: Record<string, { condition: string | null; cleanliness: string | null; description: string | null }> = {};
@@ -213,6 +269,9 @@ export const reports = {
         id: p.id,
         roomId: p.roomId,
         itemId: p.itemId,
+        meterId: p.meterId,
+        keyId: p.keyId,
+        alarmId: p.alarmId,
         caption: p.caption,
         sortOrder: p.sortOrder,
         width: p.width,
@@ -236,6 +295,7 @@ export const reports = {
       ),
       meters,
       keys,
+      alarms,
       previousItems,
       /**
        * The property's uploaded front elevation, when there is one. The report
@@ -382,6 +442,7 @@ export const reports = {
     await db.delete(schema.signatures).where(eq(schema.signatures.reportId, report.id));
     await db.delete(schema.meterReadings).where(eq(schema.meterReadings.reportId, report.id));
     await db.delete(schema.keySets).where(eq(schema.keySets.reportId, report.id));
+    await db.delete(schema.alarmChecks).where(eq(schema.alarmChecks.reportId, report.id));
     await db.delete(schema.reports).where(eq(schema.reports.id, report.id));
     return { ok: true };
   }),
@@ -416,6 +477,7 @@ export const reports = {
           reportId: z.string(),
           readings: z.array(
             z.object({
+              id: rowId.optional(),
               meterType: z.string().max(40),
               serialNumber: z.string().max(80).optional().nullable(),
               reading: z.string().max(80).optional().nullable(),
@@ -428,12 +490,7 @@ export const reports = {
       .handler(async ({ input, context }) => {
         const report = await loadReport(input.reportId, context.user.id, context.user.role);
         assertEditable(report);
-        await db.delete(schema.meterReadings).where(eq(schema.meterReadings.reportId, report.id));
-        if (input.readings.length) {
-          await db.insert(schema.meterReadings).values(
-            input.readings.map((r) => ({ id: newId("mtr"), reportId: report.id, ...r })),
-          );
-        }
+        await syncRows(report.id, schema.meterReadings, "meterId", "mtr", input.readings);
         return db.select().from(schema.meterReadings).where(eq(schema.meterReadings.reportId, report.id));
       }),
   },
@@ -445,6 +502,7 @@ export const reports = {
           reportId: z.string(),
           keys: z.array(
             z.object({
+              id: rowId.optional(),
               description: z.string().min(1).max(160),
               quantity: z.number().int().min(0).max(99).default(1),
               notes: z.string().max(500).optional().nullable(),
@@ -455,13 +513,32 @@ export const reports = {
       .handler(async ({ input, context }) => {
         const report = await loadReport(input.reportId, context.user.id, context.user.role);
         assertEditable(report);
-        await db.delete(schema.keySets).where(eq(schema.keySets.reportId, report.id));
-        if (input.keys.length) {
-          await db
-            .insert(schema.keySets)
-            .values(input.keys.map((k) => ({ id: newId("key"), reportId: report.id, ...k })));
-        }
+        await syncRows(report.id, schema.keySets, "keyId", "key", input.keys);
         return db.select().from(schema.keySets).where(eq(schema.keySets.reportId, report.id));
+      }),
+  },
+
+  alarms: {
+    save: authed
+      .input(
+        z.object({
+          reportId: z.string(),
+          alarms: z.array(
+            z.object({
+              id: rowId.optional(),
+              alarmType: z.string().min(1).max(40),
+              location: z.string().max(160).optional().nullable(),
+              status: z.enum(["working", "not_working", "missing", "not_tested"]).optional().nullable(),
+              notes: z.string().max(500).optional().nullable(),
+            }),
+          ),
+        }),
+      )
+      .handler(async ({ input, context }) => {
+        const report = await loadReport(input.reportId, context.user.id, context.user.role);
+        assertEditable(report);
+        await syncRows(report.id, schema.alarmChecks, "alarmId", "alm", input.alarms);
+        return db.select().from(schema.alarmChecks).where(eq(schema.alarmChecks.reportId, report.id));
       }),
   },
 };

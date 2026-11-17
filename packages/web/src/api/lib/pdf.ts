@@ -86,6 +86,10 @@ export type PdfPhoto = {
   id: string;
   roomId: string | null;
   itemId: string | null;
+  /** Set when the photo belongs to a meter reading, a set of keys or an alarm check. */
+  meterId?: string | null;
+  keyId?: string | null;
+  alarmId?: string | null;
   caption: string | null;
   storageKey: string;
   thumbKey: string | null;
@@ -156,8 +160,21 @@ export type PdfReportData = {
     signedAt: Date;
     storageKey: string;
   }[];
-  meters: { meterType: string; serialNumber: string | null; reading: string | null; location: string | null }[];
-  keys: { description: string; quantity: number; notes: string | null }[];
+  meters: {
+    id?: string;
+    meterType: string;
+    serialNumber: string | null;
+    reading: string | null;
+    location: string | null;
+  }[];
+  keys: { id?: string; description: string; quantity: number; notes: string | null }[];
+  alarms?: {
+    id: string;
+    alarmType: string;
+    location: string | null;
+    status: string | null;
+    notes: string | null;
+  }[];
   previousItems: Record<string, { condition: string | null; cleanliness: string | null; description: string | null }>;
   /** Indigo wordmark for white page headers and footers. */
   logoBytes?: Uint8Array | null;
@@ -836,7 +853,19 @@ function drawSummary(d: Doc, data: PdfReportData) {
       alert: ALERT_GRADES.has(r.generalCleanliness),
     });
   }
-  rows.push(...alarmRows(data));
+  if (data.alarms?.length) {
+    for (const a of data.alarms) {
+      rows.push({
+        label: alarmName(a.alarmType),
+        value: sentence(
+          [ALARM_STATUS_LABELS[a.status ?? ""] ?? "Not recorded", a.location, a.notes].filter(Boolean).join(" — "),
+        ),
+        alert: a.status === "not_working" || a.status === "missing",
+      });
+    }
+  } else {
+    rows.push(...alarmRows(data));
+  }
   if (r.summaryNotes?.trim()) rows.push({ label: "Summary", value: sentence(r.summaryNotes) });
   if (r.maintenanceIssues?.trim()) rows.push({ label: "Maintenance issues", value: sentence(r.maintenanceIssues), alert: true });
   if (r.tenantObservations?.trim()) rows.push({ label: "Tenant observations", value: sentence(r.tenantObservations) });
@@ -858,6 +887,27 @@ function drawSummary(d: Doc, data: PdfReportData) {
       ["Reading", m.reading ?? "Unable to read."],
     ]);
   }
+}
+
+const ALARM_STATUS_LABELS: Record<string, string> = {
+  working: "Working",
+  not_working: "Not working",
+  missing: "Missing",
+  not_tested: "Not tested",
+};
+
+const ALARM_NAMES: Record<string, string> = {
+  smoke: "Smoke alarm",
+  co: "CO alarm",
+  heat: "Heat alarm",
+  gas: "Gas detector",
+  fire_blanket: "Fire blanket",
+  fire_extinguisher: "Fire extinguisher",
+  other: "Safety item",
+};
+
+function alarmName(type: string) {
+  return ALARM_NAMES[type] ?? type.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
 function meterName(type: string) {
@@ -1102,6 +1152,34 @@ export async function buildReportPdf(data: PdfReportData): Promise<Uint8Array> {
     return image;
   };
 
+  /* Photographs of meters, keys and alarms, right after the summary. */
+  const sections: { title: string; photos: PdfPhoto[] }[] = [
+    ...data.meters.map((m) => ({
+      title: `${meterName(m.meterType)} meter`,
+      photos: data.photos.filter((p) => m.id && p.meterId === m.id),
+    })),
+    ...data.keys.map((k) => ({
+      title: `Keys - ${k.description}`,
+      photos: data.photos.filter((p) => k.id && p.keyId === k.id),
+    })),
+    ...(data.alarms ?? []).map((a) => ({
+      title: alarmName(a.alarmType),
+      photos: data.photos.filter((p) => p.alarmId === a.id),
+    })),
+  ].filter((section) => section.photos.length);
+  if (sections.length) {
+    sectionHeading(d, "Meters, keys and alarms - photographs");
+    for (const section of sections) {
+      subHeading(d, section.title);
+      const images: GridImage[] = [];
+      for (const p of section.photos) {
+        const image = await loadImage(p);
+        if (image) images.push({ image, caption: `${section.title}#${images.length + 1}`, sub: p.caption, url: photoOpenUrl(p.id) });
+      }
+      drawPhotoPairs(d, images);
+    }
+  }
+
   let entryNumber = 0;
   for (const room of data.rooms) {
     d.y -= 6;
@@ -1142,7 +1220,7 @@ export async function buildReportPdf(data: PdfReportData): Promise<Uint8Array> {
   }
 
   /* Unattached photographs */
-  const loose = data.photos.filter((p) => !p.roomId && !p.itemId);
+  const loose = data.photos.filter((p) => !p.roomId && !p.itemId && !p.meterId && !p.keyId && !p.alarmId);
   if (loose.length) {
     sectionHeading(d, "Additional photographs");
     const images: GridImage[] = [];

@@ -67,7 +67,7 @@ async function loadUser(claims: Claims): Promise<SessionUser | null> {
   };
 }
 
-async function currentUser(headers: Headers): Promise<SessionUser | null> {
+export async function currentUser(headers: Headers): Promise<SessionUser | null> {
   const claims = await verifyAccessToken(headers);
   return claims ? loadUser(claims) : null;
 }

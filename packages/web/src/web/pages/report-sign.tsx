@@ -19,8 +19,6 @@ import { formatDate, formatDateTime, shortAddress } from "../lib/format";
 const ROLES = [
   { value: "clerk", label: "Inventory clerk", blurb: "The person who carried out this inspection." },
   { value: "tenant", label: "Tenant", blurb: "Agrees the record of condition on the date stated." },
-  { value: "landlord", label: "Landlord", blurb: "Accepts the report on behalf of the property owner." },
-  { value: "agent", label: "Letting agent", blurb: "Signs on behalf of the managing agency." },
 ] as const;
 
 type Role = (typeof ROLES)[number]["value"];

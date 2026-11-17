@@ -89,6 +89,94 @@ async function confirmAndEmail(row: BookingRow, headers: Headers) {
   return { ...updated, emailed: true };
 }
 
+type BookingFull = typeof schema.bookingRequests.$inferSelect;
+
+/**
+ * Turns a booking into a property owned by [userId], so it shows up in the inspector app (which
+ * lists the signed-in person's own properties). Safe to call twice: a property already made for
+ * this booking, or with the same first address line, is reused.
+ */
+async function createPropertyFromBooking(booking: BookingFull, userId: string) {
+  const esAddress = booking.propertyCountry === "ES" ? booking.propertyAddressEs : null;
+  const parts = booking.propertyAddress
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const postcodeRe = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+  let postcode = "";
+  if (parts.length > 1 && postcodeRe.test(parts[parts.length - 1])) postcode = parts.pop()!;
+  const city = parts.length > 1 ? parts.pop()! : null;
+  const addressLine1 = parts.shift() ?? booking.propertyAddress;
+  const addressLine2 = parts.length ? parts.join(", ") : null;
+  const split = esAddress
+    ? spanishAddressToProperty(esAddress)
+    : { addressLine1, addressLine2, city, postcode: postcode.toUpperCase() || "—" };
+
+  // Already made for this booking (by whoever owns it), or the same address for this owner.
+  const [madeBefore] = await db
+    .select({ id: schema.properties.id })
+    .from(schema.properties)
+    .where(eq(schema.properties.reference, booking.reference));
+  if (madeBefore) return { propertyId: madeBefore.id, created: false };
+  const existing = await db
+    .select({ id: schema.properties.id })
+    .from(schema.properties)
+    .where(
+      and(
+        eq(schema.properties.userId, userId),
+        eq(schema.properties.addressLine1, split.addressLine1),
+      ),
+    );
+  if (existing.length) return { propertyId: existing[0].id, created: false };
+
+  const property = {
+    id: newId("prp"),
+    userId,
+    reference: booking.reference,
+    ...split,
+    furnishing: booking.furnishing,
+    ...(booking.bedrooms != null ? { bedrooms: booking.bedrooms } : {}),
+    ...(booking.bathrooms != null ? { bathrooms: booking.bathrooms } : {}),
+    // The report template already includes one living room.
+    ...(booking.receptionRooms != null ? { otherRooms: Math.max(0, booking.receptionRooms - 1) } : {}),
+    tenantName: booking.tenantName,
+    tenantEmail: booking.tenantEmail,
+    landlordName: booking.contactName,
+    landlordEmail: booking.contactEmail,
+    notes: [
+      `Booked online for ${booking.requestedDate} at ${booking.requestedTime}.`,
+      booking.inspectionType ? `Requested: ${booking.inspectionType}.` : null,
+      roomsSummary(booking) ? `Size given when booking: ${roomsSummary(booking)}.` : null,
+      booking.accessNotes ? `Keys / access: ${booking.accessNotes}` : null,
+      esAddress?.catastralRef ? `Catastral ref (building): ${esAddress.catastralRef}` : null,
+      esAddress && mapLink(esAddress) ? `Map: ${mapLink(esAddress)}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+  await db.insert(schema.properties).values(property);
+  return { propertyId: property.id, created: true };
+}
+
+/**
+ * Who a website booking belongs to: the office account named in BOOKING_OWNER_EMAIL, else the first
+ * ADMIN_EMAILS address that has signed up, else any admin. Null when nobody has an account yet.
+ */
+async function bookingOwnerId(): Promise<string | null> {
+  const named = [process.env.BOOKING_OWNER_EMAIL, ...(process.env.ADMIN_EMAILS ?? "").split(",")]
+    .map((e) => e?.trim().toLowerCase())
+    .filter((e): e is string => Boolean(e));
+  for (const email of named) {
+    const [row] = await db
+      .select({ id: schema.profiles.id })
+      .from(schema.profiles)
+      .where(sql`lower(${schema.profiles.email}) = ${email}`);
+    if (row) return row.id;
+  }
+  const [admin] = await db.select({ id: schema.profiles.id }).from(schema.profiles).where(eq(schema.profiles.role, "admin")).limit(1);
+  return admin?.id ?? null;
+}
+
 function bookingReference() {
   return `BK-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
@@ -117,6 +205,15 @@ export const bookings = {
       termsAcceptedAt: new Date(),
     };
     const [saved] = await db.insert(schema.bookingRequests).values(row).returning();
+
+    // The property appears in the inspector app straight away. The booking is already saved, so a
+    // problem here is logged and the office can still use "convert" on the Bookings screen.
+    try {
+      const ownerId = await bookingOwnerId();
+      if (ownerId) await createPropertyFromBooking(saved, ownerId);
+    } catch (error) {
+      console.error("Could not create the property for a booking", error instanceof Error ? error.name : "Unknown error");
+    }
 
     // The office finds out the moment a request lands — the booking is already
     // saved, so a mail failure is logged rather than shown to the requester.
@@ -282,58 +379,7 @@ export const bookings = {
     const emailed =
       input.notifyCustomer && !alreadyConfirmed ? (await confirmAndEmail(booking, context.headers)).emailed : null;
 
-    const esAddress = booking.propertyCountry === "ES" ? booking.propertyAddressEs : null;
-    const parts = booking.propertyAddress
-      .split(",")
-      .map((p) => p.trim())
-      .filter(Boolean);
-    const postcodeRe = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
-    let postcode = "";
-    if (parts.length > 1 && postcodeRe.test(parts[parts.length - 1])) postcode = parts.pop()!;
-    const city = parts.length > 1 ? parts.pop()! : null;
-    const addressLine1 = parts.shift() ?? booking.propertyAddress;
-    const addressLine2 = parts.length ? parts.join(", ") : null;
-    const split = esAddress
-      ? spanishAddressToProperty(esAddress)
-      : { addressLine1, addressLine2, city, postcode: postcode.toUpperCase() || "—" };
-
-    const existing = await db
-      .select({ id: schema.properties.id })
-      .from(schema.properties)
-      .where(
-        and(
-          eq(schema.properties.userId, context.user.id),
-          eq(schema.properties.addressLine1, split.addressLine1),
-        ),
-      );
-    if (existing.length) return { propertyId: existing[0].id, created: false, emailed };
-
-    const property = {
-      id: newId("prp"),
-      userId: context.user.id,
-      reference: booking.reference,
-      ...split,
-      furnishing: booking.furnishing,
-      ...(booking.bedrooms != null ? { bedrooms: booking.bedrooms } : {}),
-      ...(booking.bathrooms != null ? { bathrooms: booking.bathrooms } : {}),
-      // The report template already includes one living room.
-      ...(booking.receptionRooms != null ? { otherRooms: Math.max(0, booking.receptionRooms - 1) } : {}),
-      tenantName: booking.tenantName,
-      tenantEmail: booking.tenantEmail,
-      landlordName: booking.contactName,
-      landlordEmail: booking.contactEmail,
-      notes: [
-        `Booked online for ${booking.requestedDate} at ${booking.requestedTime}.`,
-        booking.inspectionType ? `Requested: ${booking.inspectionType}.` : null,
-        roomsSummary(booking) ? `Size given when booking: ${roomsSummary(booking)}.` : null,
-        booking.accessNotes ? `Keys / access: ${booking.accessNotes}` : null,
-        esAddress?.catastralRef ? `Catastral ref (building): ${esAddress.catastralRef}` : null,
-        esAddress && mapLink(esAddress) ? `Map: ${mapLink(esAddress)}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    };
-    await db.insert(schema.properties).values(property);
-    return { propertyId: property.id, created: true, emailed };
+    const made = await createPropertyFromBooking(booking, context.user.id);
+    return { propertyId: made.propertyId, created: made.created, emailed };
   }),
 };

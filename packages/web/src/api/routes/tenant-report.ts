@@ -225,6 +225,7 @@ export async function appSendTenantLink(c: Context) {
     const issued = await issueTenantLink(await buildTenantSnapshot(report), report.id, email);
 
     let emailed = false;
+    let emailError: string | null = null;
     if (email && emailConfigured()) {
       const [property] = await db.select().from(schema.properties).where(eq(schema.properties.id, report.propertyId));
       const plainAddress = [property?.addressLine1, property?.postcode].filter(Boolean).join(", ");
@@ -241,10 +242,13 @@ export async function appSendTenantLink(c: Context) {
         });
         emailed = true;
       } catch (error) {
-        console.error("Tenant link email failed", error instanceof Error ? error.name : "Unknown error");
+        console.error("Tenant link email failed", error instanceof Error ? error.message : "Unknown error");
+        emailError = error instanceof Error ? error.message.slice(0, 300) : "Unknown error";
       }
+    } else if (email) {
+      emailError = "Email is not set up on the server (RESEND_API_KEY is missing).";
     }
-    return c.json({ url: issued.url, emailed, sentTo: email ?? null });
+    return c.json({ url: issued.url, emailed, sentTo: email ?? null, emailError });
   } catch (error) {
     return appError(c, error);
   }

@@ -12,7 +12,8 @@ const propertyInput = z.object({
   addressLine1: z.string().min(1, "Address is required").max(200),
   addressLine2: z.string().max(200).optional().nullable(),
   city: z.string().max(120).optional().nullable(),
-  postcode: z.string().min(2, "Postcode is required").max(12),
+  // min 1: a property made from a booking without a recognisable postcode is saved with "—".
+  postcode: z.string().min(1, "Postcode is required").max(12),
   propertyType: z.string().max(80).optional().nullable(),
   furnishing: z.string().max(60).optional().nullable(),
   bedrooms: z.number().int().min(0).max(30).default(0),

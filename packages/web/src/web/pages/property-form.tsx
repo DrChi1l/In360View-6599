@@ -108,7 +108,15 @@ export default function PropertyForm({ id }: { id?: string }) {
         navigate(`/properties/${row.id}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The property could not be saved.");
+      // Validation failures carry the failing fields; show them instead of a generic message.
+      const issues = (e as { data?: { issues?: { path?: unknown[]; message?: string }[] } })?.data?.issues;
+      setError(
+        issues?.length
+          ? issues.map((i) => `${String(i.path?.[0] ?? "field")}: ${i.message}`).join(" · ")
+          : e instanceof Error
+            ? e.message
+            : "The property could not be saved.",
+      );
     }
   }
 

@@ -18,12 +18,12 @@ const COPY = {
     back: "Back to home",
     eyebrow: "Inventories · Inspections · Reports",
     intro:
-      "Check-in and check-out inventory rates by area and property size, covering Buckinghamshire, Berkshire and the Ealing Borough, plus the additional charges for same-day work, 360° virtual tours and extra rooms. Six bedrooms and above, large properties and HMOs, and travel outside the standard areas are quoted on request. Click the sheet to download it as a PDF, or use the buttons below to open or save it on your phone.",
+      "Check-in and check-out inventory rates for up to 4 bedrooms and 5 bedrooms, covering Buckinghamshire, Ealing Borough and Berkshire, plus mid-term inspection rates. Six bedrooms and above are quoted on request, and mid-term package prices depend on location and booking. Click the sheet to download it as a PDF, or use the buttons below to open or save it on your phone.",
     englishOnly: null as string | null,
     openPdf: "Open PDF",
     downloadPdf: "Download PDF",
     downloadAria: "Download the In360View price list as a PDF",
-    alt: "In360View price list: check-in and check-out inventory rates by bedroom count for Buckinghamshire, Berkshire and the Ealing Borough, with additional charges for same-day inspections, same-day check-ins, 360-degree virtual tours and extra bedrooms or bathrooms",
+    alt: "In360View price list: check-in and check-out inventory rates for up to 4 bedrooms and 5 bedrooms in Buckinghamshire, Ealing Borough and Berkshire, with mid-term inspection rates and 6+ bedrooms on enquiry",
     captionA: "Click the price list to download the PDF, or",
     captionLink: "download it here",
     readyTitle: "Ready to book?",
@@ -39,12 +39,12 @@ const COPY = {
     back: "Volver al inicio",
     eyebrow: "Inventarios · Inspecciones · Informes",
     intro:
-      "Tarifas de inventarios de entrada y de salida según la zona y el tamaño del inmueble, para Buckinghamshire, Berkshire y el distrito de Ealing, además de los cargos adicionales por trabajos en el mismo día, visitas virtuales en 360° y estancias adicionales. Para inmuebles de seis dormitorios o más, inmuebles grandes y HMO (viviendas compartidas), y para desplazamientos fuera de las zonas habituales, se elabora un presupuesto a medida. Haga clic en la tabla para descargarla en PDF, o use los botones de abajo para abrirla o guardarla en el móvil.",
+      "Tarifas de inventarios de entrada y de salida para inmuebles de hasta 4 dormitorios y de 5 dormitorios, para Buckinghamshire, el distrito de Ealing y Berkshire, además de las tarifas de inspecciones intermedias. Para inmuebles de seis dormitorios o más se elabora un presupuesto a medida, y los precios de los paquetes de inspección intermedia dependen de la ubicación y de la reserva. Haga clic en la tabla para descargarla en PDF, o use los botones de abajo para abrirla o guardarla en el móvil.",
     englishOnly: "La lista de precios está en inglés. Los importes están en libras esterlinas (£).",
     openPdf: "Abrir PDF",
     downloadPdf: "Descargar PDF",
     downloadAria: "Descargar la lista de precios de In360View en PDF",
-    alt: "Lista de precios de In360View: tarifas de inventarios de entrada y salida según el número de dormitorios para Buckinghamshire, Berkshire y el distrito de Ealing, con cargos adicionales por inspecciones y entradas en el mismo día, visitas virtuales en 360 grados y dormitorios o baños adicionales",
+    alt: "Lista de precios de In360View: tarifas de inventarios de entrada y salida para hasta 4 dormitorios y 5 dormitorios en Buckinghamshire, el distrito de Ealing y Berkshire, con tarifas de inspecciones intermedias y 6 o más dormitorios bajo consulta",
     captionA: "Haga clic en la lista de precios para descargar el PDF, o",
     captionLink: "descárguela aquí",
     readyTitle: "¿Listo para reservar?",
@@ -121,14 +121,14 @@ export default function Prices() {
             href={PRICE_LIST_PDF}
             download="In360View-Price-List.pdf"
             aria-label={c.downloadAria}
-            className="group relative block overflow-hidden rounded-[18px] border border-ink-100 bg-brand-50 shadow-soft transition hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            className="group relative mx-auto block max-w-2xl overflow-hidden rounded-[18px] border border-ink-100 bg-brand-50 shadow-soft transition hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <img
               src="/images/price-list.png"
               alt={c.alt}
               className="block w-full"
-              width={2340}
-              height={1655}
+              width={1696}
+              height={2400}
             />
             <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-ink-900/90 px-3.5 py-2 text-[13px] font-medium text-white shadow-soft backdrop-blur transition group-hover:bg-ink-900">
               <Download className="size-4" />

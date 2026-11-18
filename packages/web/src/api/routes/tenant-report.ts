@@ -199,8 +199,8 @@ async function appReport(c: Context, reportId: string) {
   const user = await currentUser(c.req.raw.headers);
   if (!user || user.disabled) return { fail: c.json({ error: "Sign in to continue." }, 401) };
   const report = await loadReport(reportId, user.id, user.role);
-  if (report.userId !== user.id)
-    throw new ORPCError("FORBIDDEN", { message: "Only the owner of a report can send it to a tenant." });
+  if (report.userId !== user.id && user.role !== "admin")
+    throw new ORPCError("FORBIDDEN", { message: "Only the owner of a report (or an admin) can send it to a tenant." });
   return { user, report };
 }
 

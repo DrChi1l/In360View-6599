@@ -5,6 +5,7 @@ import { addresses } from "./routes/addresses";
 import { bookings } from "./routes/bookings";
 import { dashboard } from "./routes/dashboard";
 import { documents } from "./routes/documents";
+import { invoices } from "./routes/invoices";
 import { inspection } from "./routes/inspection";
 import { myBookings } from "./routes/my-bookings";
 import { photoOpen } from "./routes/photo-open";
@@ -38,6 +39,7 @@ export const router = {
   photos,
   signatures,
   documents,
+  invoices,
   search,
   tenantReport,
 };

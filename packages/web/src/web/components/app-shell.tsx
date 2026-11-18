@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { CalendarClock, ChevronLeft, FileText, Home, Building2, Search, Tag, UserRound } from "lucide-react";
+import { CalendarClock, ChevronLeft, FileText, Receipt, Home, Building2, Search, Tag, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMe } from "../queries/account";
 import { initials } from "../lib/format";
@@ -16,6 +16,14 @@ const NAV = [
   { href: "/account", label: "Account", icon: UserRound },
 ];
 
+const ADMIN_NAV = [{ href: "/invoices", label: "Invoices", icon: Receipt }];
+
+function useNav() {
+  const me = useMe();
+  if (me.data?.role !== "admin") return NAV;
+  return [...NAV.slice(0, -1), ...ADMIN_NAV, NAV[NAV.length - 1]];
+}
+
 function isActive(current: string, href: string) {
   return href === "/" ? current === "/" : current === href || current.startsWith(`${href}/`);
 }
@@ -23,13 +31,14 @@ function isActive(current: string, href: string) {
 function Sidebar() {
   const [location] = useLocation();
   const me = useMe();
+  const nav = useNav();
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-ink-100 bg-brand-50 px-3 py-5 md:flex">
       <Link href="/" className="mb-6 px-2">
         <Logo size={24} withTagline />
       </Link>
       <nav className="flex flex-col gap-1">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active = isActive(location, item.href);
           return (
             <Link
@@ -68,9 +77,10 @@ function Sidebar() {
 
 function BottomNav() {
   const [location] = useLocation();
+  const nav = useNav();
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 flex border-t border-ink-100 bg-white/95 pt-1 backdrop-blur md:hidden">
-      {NAV.map((item) => {
+      {nav.map((item) => {
         const active = isActive(location, item.href);
         return (
           <Link

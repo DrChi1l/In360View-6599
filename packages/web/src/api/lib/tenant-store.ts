@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { tenantLinkUrl } from "./links";
 import { cleanTenantImage } from "./tenant-image";
 import { db } from "../database";
 import { tenantReports, tenantAssets, tenantRateLimits } from "../database/schema";
@@ -74,7 +75,7 @@ export async function createTenantReport(input: TenantCreate, sourceReportId?: s
     sentTo: sentTo ?? null,
     sentAt: sentTo ? new Date() : null,
   });
-  return { token, url: `https://in360view.co.uk/t/${token}` };
+  return { token, url: tenantLinkUrl(token) };
 }
 
 const latestShare = async (sourceReportId: string) =>
@@ -110,7 +111,7 @@ export async function issueTenantLink(input: TenantCreate, sourceReportId: strin
       sentAt: sentTo ? new Date() : existing.sentAt,
     })
     .where(and(eq(tenantReports.id, existing.id), isNull(tenantReports.submittedAt)));
-  return { token, url: `https://in360view.co.uk/t/${token}` };
+  return { token, url: tenantLinkUrl(token) };
 }
 
 /** What the tenant did with the link for a report, for the inspector (never exposes the link). */

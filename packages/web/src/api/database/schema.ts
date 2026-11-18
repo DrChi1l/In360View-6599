@@ -397,3 +397,43 @@ export const bookingAccessLinks = pgTable(
   },
   (t) => [index("booking_access_email_idx").on(t.email), index("booking_access_expiry_idx").on(t.expiresAt)],
 );
+
+/** One line of an invoice: a job (report) or a free-form charge. */
+export type InvoiceLine = {
+  reportId?: string | null;
+  description: string;
+  rate: number;
+  qty: number;
+};
+
+/**
+ * Invoices issued by an admin to a client (agency, landlord or clerk account), either for a
+ * whole month of completed jobs or for a single job. Lines are stored with the invoice so it
+ * never changes after it has been issued, even if a report is edited later.
+ */
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: text("id").primaryKey(),
+    /** Sequential, human-facing number, zero padded: 00006. */
+    number: text("number").notNull().unique(),
+    /** The account the jobs belong to (optional: an invoice can be free-form). */
+    clientUserId: text("client_user_id"),
+    clientName: text("client_name").notNull(),
+    clientAddress: text("client_address"),
+    issueDate: timestamp("issue_date", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    /** month | job | custom */
+    kind: text("kind").default("custom").notNull(),
+    /** YYYY-MM for a monthly invoice. */
+    periodMonth: text("period_month"),
+    lines: jsonb("lines").$type<InvoiceLine[]>().notNull(),
+    total: real("total").notNull(),
+    currency: text("currency").default("GBP").notNull(),
+    /** draft | sent | paid */
+    status: text("status").default("draft").notNull(),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
+  },
+  (t) => [index("invoices_client_idx").on(t.clientUserId), index("invoices_issue_idx").on(t.issueDate)],
+);

@@ -18,3 +18,12 @@ export function photoOpenUrl(photoId: string): string | null {
   const base = siteBase();
   return base ? `${base}/api/photos/${photoId}/open` : null;
 }
+
+/**
+ * The private page a tenant opens to review and sign. Uses WEBSITE_URL so the link always
+ * points at the deployment that actually serves it (a hardcoded domain that is not
+ * published yet gives the tenant a dead link).
+ */
+export function tenantLinkUrl(token: string): string {
+  return `${siteBase() || "https://in360view.co.uk"}/t/${token}`;
+}

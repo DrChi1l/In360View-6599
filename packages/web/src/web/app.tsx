@@ -21,6 +21,8 @@ import SearchPage from "./pages/search";
 import Account from "./pages/account";
 import NewReport from "./pages/new-report";
 import TenantReport from "./pages/tenant-report";
+import Invoices from "./pages/invoices";
+import InvoiceView from "./pages/invoice-view";
 import MyBookings from "./pages/my-bookings";
 
 function HomeRoute() {
@@ -154,6 +156,20 @@ function App() {
               <ReportDetail id={params.id} />
             </Protected>
           )}
+        </Route>
+
+        <Route path="/invoices/:id">
+          {(params) => (
+            <Protected>
+              <InvoiceView id={params.id!} />
+            </Protected>
+          )}
+        </Route>
+
+        <Route path="/invoices">
+          <Protected>
+            <Invoices />
+          </Protected>
         </Route>
 
         <Route path="/search">

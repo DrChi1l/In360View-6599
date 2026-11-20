@@ -24,27 +24,23 @@ export default function Invoices() {
   const list = useInvoices();
   const [creating, setCreating] = useState(false);
 
-  if (me.data && me.data.role !== "admin") {
-    return (
-      <AppShell title="Invoices">
-        <EmptyState title="Invoices are only available to administrators." />
-      </AppShell>
-    );
-  }
+  const isAdmin = me.data?.role === "admin";
 
   return (
     <AppShell
       title="Invoices"
-      subtitle="Bill a client for a month of jobs, or for a single job"
+      subtitle={isAdmin ? "Bill a client for a month of jobs, or for a single job" : "Your invoices and payment history"}
       wide
       actions={
-        <Button size="sm" onClick={() => setCreating((v) => !v)}>
-          <Plus className="size-4" />
-          New invoice
-        </Button>
+        isAdmin && (
+          <Button size="sm" onClick={() => setCreating((v) => !v)}>
+            <Plus className="size-4" />
+            New invoice
+          </Button>
+        )
       }
     >
-      {creating && <CreateInvoice onDone={() => setCreating(false)} />}
+      {isAdmin && creating && <CreateInvoice onDone={() => setCreating(false)} />}
       {list.isLoading && <Loading />}
       {list.error && <ErrorNote error={list.error} />}
       {list.data && list.data.length === 0 && !creating && <EmptyState title="No invoices yet." />}
@@ -57,7 +53,7 @@ export default function Invoices() {
                   #{inv.number} · {inv.clientName}
                 </div>
                 <div className="text-xs text-ink-500">
-                  {formatDate(inv.issueDate)} · {inv.kind === "month" ? `Month ${inv.periodMonth}` : inv.kind === "job" ? "Single job" : "Custom"} · {inv.status}
+                  {formatDate(inv.issueDate)} · {inv.kind === "month" ? `Month ${inv.periodMonth}` : inv.kind === "job" ? "Single job" : "Custom"} · {inv.status === "paid" ? "Paid" : inv.status === "sent" ? "Awaiting payment" : "Draft"}
                 </div>
               </div>
               <div className="font-semibold">{money(inv.total)}</div>

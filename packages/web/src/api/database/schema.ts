@@ -21,6 +21,8 @@ export const properties = pgTable(
     bedrooms: integer("bedrooms").default(0).notNull(),
     bathrooms: integer("bathrooms").default(0).notNull(),
     otherRooms: integer("other_rooms").default(0).notNull(),
+    /** The agency account this property is managed for; it sees progress and invoices in its portal. */
+    agencyUserId: text("agency_user_id"),
     landlordName: text("landlord_name"),
     landlordEmail: text("landlord_email"),
     tenantName: text("tenant_name"),
@@ -40,7 +42,11 @@ export const properties = pgTable(
     createdAt: timestamp("created_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$defaultFn(now).notNull(),
   },
-  (t) => [index("properties_user_idx").on(t.userId), index("properties_postcode_idx").on(t.postcode)],
+  (t) => [
+    index("properties_user_idx").on(t.userId),
+    index("properties_postcode_idx").on(t.postcode),
+    index("properties_agency_idx").on(t.agencyUserId),
+  ],
 );
 
 /** An inspection report: check-in, check-out or mid-term. */

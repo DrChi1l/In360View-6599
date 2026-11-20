@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { AppShell } from "../components/app-shell";
 import { Button } from "../components/ui/button";
 import { ErrorNote, Loading } from "../components/empty-state";
+import { useMe } from "../queries/account";
 import { useDownloadInvoicePdf, useInvoice, useRemoveInvoice, useSetInvoiceStatus } from "../queries/invoices";
 
 const money = (n: number) => `£${n.toFixed(2)}`;
@@ -20,6 +21,7 @@ export default function InvoiceView({ id }: { id: string }) {
   const remove = useRemoveInvoice();
   const download = useDownloadInvoicePdf();
   const inv = q.data;
+  const isAdmin = useMe().data?.role === "admin";
 
   return (
     <AppShell
@@ -29,7 +31,7 @@ export default function InvoiceView({ id }: { id: string }) {
       actions={
         inv && (
           <div className="flex gap-2 print:hidden">
-            <select
+            {isAdmin && <select
               aria-label="Status"
               className="rounded-lg border border-ink-200 px-2 text-sm"
               value={inv.status}
@@ -38,14 +40,14 @@ export default function InvoiceView({ id }: { id: string }) {
               <option value="draft">Draft</option>
               <option value="sent">Sent</option>
               <option value="paid">Paid</option>
-            </select>
+            </select>}
             <Button size="sm" disabled={download.isPending} onClick={() => download.mutate(id)}>
               <Download className="size-4" /> {download.isPending ? "Preparing…" : "Download PDF"}
             </Button>
             <Button size="sm" variant="outline" onClick={() => window.print()}>
               <Printer className="size-4" /> Print
             </Button>
-            <Button
+            {isAdmin && <Button
               size="sm"
               variant="outline"
               onClick={() => {
@@ -53,7 +55,7 @@ export default function InvoiceView({ id }: { id: string }) {
               }}
             >
               <Trash2 className="size-4" />
-            </Button>
+            </Button>}
           </div>
         )
       }

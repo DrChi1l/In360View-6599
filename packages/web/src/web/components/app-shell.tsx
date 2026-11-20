@@ -18,8 +18,16 @@ const NAV = [
 
 const ADMIN_NAV = [{ href: "/invoices", label: "Invoices", icon: Receipt }];
 
+/** Agencies get a small portal: progress, invoices and their account, none of the inspection tools. */
+const AGENCY_NAV = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/invoices", label: "Invoices", icon: Receipt },
+  { href: "/account", label: "Account", icon: UserRound },
+];
+
 function useNav() {
   const me = useMe();
+  if (me.data?.role === "agency") return AGENCY_NAV;
   if (me.data?.role !== "admin") return NAV;
   return [...NAV.slice(0, -1), ...ADMIN_NAV, NAV[NAV.length - 1]];
 }

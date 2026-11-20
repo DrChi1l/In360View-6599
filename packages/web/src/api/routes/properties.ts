@@ -5,7 +5,7 @@ import { db } from "../database";
 import * as schema from "../database/schema";
 import { newId } from "../lib/ids";
 import { deleteObject, presignGet, presignPut } from "../lib/s3";
-import { authed } from "../middleware/auth";
+import { adminOnly, authed } from "../middleware/auth";
 
 const propertyInput = z.object({
   reference: z.string().max(60).optional().nullable(),
@@ -162,6 +162,19 @@ export const properties = {
       .returning();
     return row;
   }),
+
+  /** Admin only: which agency account this property is managed for (null clears it). */
+  setAgency: adminOnly
+    .input(z.object({ propertyId: z.string(), agencyUserId: z.string().nullable() }))
+    .handler(async ({ input }) => {
+      const [row] = await db
+        .update(schema.properties)
+        .set({ agencyUserId: input.agencyUserId, updatedAt: new Date() })
+        .where(eq(schema.properties.id, input.propertyId))
+        .returning({ id: schema.properties.id, agencyUserId: schema.properties.agencyUserId });
+      if (!row) throw new ORPCError("NOT_FOUND");
+      return row;
+    }),
 
   update: authed
     .input(propertyInput.partial().extend({ id: z.string() }))

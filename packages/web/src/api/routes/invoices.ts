@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../database";
 import * as schema from "../database/schema";
@@ -8,7 +8,7 @@ import { buildInvoicePdf } from "../lib/invoice-pdf";
 import { newId } from "../lib/ids";
 import { DEFAULT_RATES, paymentInfo } from "../lib/invoice-config";
 import { REPORT_TYPE_LABELS, type ReportType } from "../lib/domain";
-import { adminOnly } from "../middleware/auth";
+import { adminOnly, authed } from "../middleware/auth";
 
 const lineSchema = z.object({
   reportId: z.string().optional().nullable(),
@@ -53,6 +53,13 @@ async function jobLines(where: ReturnType<typeof and>) {
   }));
 }
 
+/** Admins see every invoice; anyone else only their own, and never a draft. */
+function visibleTo(user: { id: string; role?: string | null }, id?: string) {
+  if (user.role === "admin") return id ? eq(schema.invoices.id, id) : undefined;
+  const own = and(eq(schema.invoices.clientUserId, user.id), ne(schema.invoices.status, "draft"))!;
+  return id ? and(eq(schema.invoices.id, id), own) : own;
+}
+
 export const invoices = {
   /** Accounts that have jobs, to pick a client from. */
   clients: adminOnly.handler(async () => {
@@ -62,6 +69,7 @@ export const invoices = {
         name: schema.profiles.name,
         email: schema.profiles.email,
         companyName: schema.profiles.companyName,
+        role: schema.profiles.role,
       })
       .from(schema.profiles)
       .orderBy(schema.profiles.companyName, schema.profiles.name);
@@ -78,7 +86,8 @@ export const invoices = {
     )
     .handler(async ({ input }) => {
       const conds = [
-        eq(schema.reports.userId, input.clientUserId),
+        // Jobs for an agency are the properties linked to it; the inspector owns the reports.
+        or(eq(schema.properties.agencyUserId, input.clientUserId), eq(schema.reports.userId, input.clientUserId))!,
         inArray(schema.reports.status, ["completed", "signed"]),
       ];
       if (input.reportId) conds.push(eq(schema.reports.id, input.reportId));
@@ -89,19 +98,24 @@ export const invoices = {
       return jobLines(and(...conds));
     }),
 
-  list: adminOnly.handler(async () => {
-    return db.select().from(schema.invoices).orderBy(desc(schema.invoices.createdAt)).limit(200);
+  list: authed.handler(async ({ context }) => {
+    return db
+      .select()
+      .from(schema.invoices)
+      .where(visibleTo(context.user))
+      .orderBy(desc(schema.invoices.issueDate), desc(schema.invoices.createdAt))
+      .limit(200);
   }),
 
-  get: adminOnly.input(z.object({ id: z.string() })).handler(async ({ input }) => {
-    const [row] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, input.id));
+  get: authed.input(z.object({ id: z.string() })).handler(async ({ input, context }) => {
+    const [row] = await db.select().from(schema.invoices).where(visibleTo(context.user, input.id));
     if (!row) throw new ORPCError("NOT_FOUND", { message: "Invoice not found" });
     return { ...row, paymentInfo: paymentInfo() };
   }),
 
   /** The invoice as a PDF, base64-encoded for the browser to save. */
-  pdf: adminOnly.input(z.object({ id: z.string() })).handler(async ({ input }) => {
-    const [row] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, input.id));
+  pdf: authed.input(z.object({ id: z.string() })).handler(async ({ input, context }) => {
+    const [row] = await db.select().from(schema.invoices).where(visibleTo(context.user, input.id));
     if (!row) throw new ORPCError("NOT_FOUND", { message: "Invoice not found" });
     const bytes = await buildInvoicePdf({
       number: row.number,

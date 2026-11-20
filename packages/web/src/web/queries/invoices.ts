@@ -9,8 +9,8 @@ export function useInvoice(id: string) {
   return useQuery(orpc.invoices.get.queryOptions({ input: { id } }));
 }
 
-export function useInvoiceClients() {
-  return useQuery(orpc.invoices.clients.queryOptions({ staleTime: 60_000 }));
+export function useInvoiceClients(enabled = true) {
+  return useQuery(orpc.invoices.clients.queryOptions({ enabled, staleTime: 60_000 }));
 }
 
 export function useInvoiceCandidates(input: { clientUserId: string; month?: string; reportId?: string } | null) {

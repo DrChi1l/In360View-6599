@@ -6,6 +6,8 @@ import { Button } from "../components/ui/button";
 import { EmptyState, ErrorNote, Loading } from "../components/empty-state";
 import { StatusPill, TypePill } from "../components/status-pill";
 import { useDashboard } from "../queries/dashboard";
+import { useMe } from "../queries/account";
+import AgencyHome from "./agency-home";
 import { formatDate, formatRelative, pluralise } from "../lib/format";
 import { REPORT_TYPE_LABELS, type ReportType } from "../../api/lib/domain";
 
@@ -36,6 +38,11 @@ function Stat({
 }
 
 export default function Dashboard() {
+  const me = useMe();
+  return me.data?.role === "agency" ? <AgencyHome /> : <ClerkDashboard />;
+}
+
+function ClerkDashboard() {
   const dashboard = useDashboard();
   const data = dashboard.data;
   const firstName = (data?.user.name ?? "").split(" ")[0];

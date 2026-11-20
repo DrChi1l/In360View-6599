@@ -10,6 +10,7 @@ import { inspection } from "./routes/inspection";
 import { myBookings } from "./routes/my-bookings";
 import { photoOpen } from "./routes/photo-open";
 import { photos } from "./routes/photos";
+import { portal } from "./routes/portal";
 import { ping } from "./routes/ping";
 import { properties } from "./routes/properties";
 import { reports } from "./routes/reports";
@@ -42,6 +43,7 @@ export const router = {
   invoices,
   search,
   tenantReport,
+  portal,
 };
 
 export type AppRouter = typeof router;

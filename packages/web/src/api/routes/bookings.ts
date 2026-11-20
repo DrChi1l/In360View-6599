@@ -129,9 +129,16 @@ async function createPropertyFromBooking(booking: BookingFull, userId: string) {
     );
   if (existing.length) return { propertyId: existing[0].id, created: false };
 
+  // An agency account with the booking contact's email gets this property in its portal.
+  const [agency] = await db
+    .select({ id: schema.profiles.id })
+    .from(schema.profiles)
+    .where(and(eq(schema.profiles.role, "agency"), sql`lower(${schema.profiles.email}) = ${booking.contactEmail.trim().toLowerCase()}`));
+
   const property = {
     id: newId("prp"),
     userId,
+    agencyUserId: agency?.id ?? null,
     reference: booking.reference,
     ...split,
     furnishing: booking.furnishing,

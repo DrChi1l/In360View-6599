@@ -4,6 +4,9 @@ import { AppShell } from "../components/app-shell";
 import { Card, Field, Input, Select, Textarea } from "../components/ui/field";
 import { Button } from "../components/ui/button";
 import { ErrorNote, Loading, Spinner } from "../components/empty-state";
+import { useMe } from "../queries/account";
+import { useInvoiceClients } from "../queries/invoices";
+import { client } from "../lib/api";
 import { useCreateProperty, useProperty, useUpdateProperty } from "../queries/properties";
 import { FURNISHING_TYPES, PROPERTY_TYPES } from "../../api/lib/domain";
 
@@ -230,6 +233,8 @@ export default function PropertyForm({ id }: { id?: string }) {
           </p>
         </Card>
 
+        {editing && id && <AgencyPicker propertyId={id} current={existing.data?.property.agencyUserId ?? null} />}
+
         <Card className="grid gap-3.5 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[15px] font-semibold text-ink-900">People</h2>
@@ -290,5 +295,48 @@ export default function PropertyForm({ id }: { id?: string }) {
         </div>
       </form>
     </AppShell>
+  );
+}
+
+/** Admin only: which agency account sees this property in its portal. Saves as soon as it changes. */
+function AgencyPicker({ propertyId, current }: { propertyId: string; current: string | null }) {
+  const isAdmin = useMe().data?.role === "admin";
+  const clients = useInvoiceClients(isAdmin);
+  const [value, setValue] = useState(current ?? "");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  useEffect(() => setValue(current ?? ""), [current]);
+  if (!isAdmin) return null;
+  const agencies = (clients.data ?? []).filter((c) => c.role === "agency");
+  return (
+    <Card className="grid gap-2 p-4">
+      <h2 className="text-[15px] font-semibold text-ink-900">Agency</h2>
+      <p className="text-[12px] text-ink-500">
+        The agency account that sees this property’s progress and invoices in its portal. It is set
+        automatically when a booking comes from an agency email.
+      </p>
+      <Select
+        value={value}
+        onChange={async (e) => {
+          const next = e.target.value;
+          setValue(next);
+          setState("saving");
+          try {
+            await client.properties.setAgency({ propertyId, agencyUserId: next || null });
+            setState("saved");
+          } catch {
+            setState("error");
+          }
+        }}
+      >
+        <option value="">None</option>
+        {agencies.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.companyName ? `${a.companyName} (${a.name})` : a.name || a.email}
+          </option>
+        ))}
+      </Select>
+      {state === "saved" && <p className="text-[12px] text-ok">Saved.</p>}
+      {state === "error" && <p className="text-[12px] text-warn">Could not save. Try again.</p>}
+    </Card>
   );
 }

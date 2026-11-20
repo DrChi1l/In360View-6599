@@ -330,13 +330,18 @@ const EMPTY_FORM = {
   accessNotes: "",
 };
 
-function BookingForm() {
+function BookingForm({ defaults }: { defaults?: { name?: string; email?: string; phone?: string } }) {
   const { lang } = useLang();
   const c = COPY[lang];
   const request = useRequestBooking();
   const [date, setDate] = useState(() => iso(new Date()));
   const [time, setTime] = useState("10:00");
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_FORM,
+    contactName: defaults?.name ?? "",
+    contactEmail: defaults?.email ?? "",
+    contactPhone: defaults?.phone ?? "",
+  }));
   // Spanish speakers usually book a Spanish property, but either can be chosen.
   const [country, setCountry] = useState<PropertyCountry>(lang === "es" ? "ES" : "GB");
   const [countryTouched, setCountryTouched] = useState(false);
@@ -420,7 +425,7 @@ function BookingForm() {
           className="mx-auto mt-2 h-10 rounded-[10px]"
           onClick={() => {
             setDone(null);
-            setForm(EMPTY_FORM);
+            setForm({ ...EMPTY_FORM, contactName: defaults?.name ?? "", contactEmail: defaults?.email ?? "", contactPhone: defaults?.phone ?? "" });
             setEsAddress(EMPTY_SPANISH_ADDRESS);
           }}
         >
@@ -902,7 +907,16 @@ function TermsDialog({
 }
 
 /** The booking form in a modal — mounted only when someone presses a booking button. */
-export function BookingDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function BookingDialog({
+  open,
+  onClose,
+  defaults,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Pre-fills the contact details (agency portal). */
+  defaults?: { name?: string; email?: string; phone?: string };
+}) {
   const c = useCopy(COPY);
   useEffect(() => {
     if (!open) return;
@@ -933,7 +947,7 @@ export function BookingDialog({ open, onClose }: { open: boolean; onClose: () =>
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5 sm:bg-canvas sm:px-7 sm:py-6">
-        <BookingForm />
+        <BookingForm defaults={defaults} />
       </div>
     </Modal>
   );
